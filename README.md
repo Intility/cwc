@@ -49,6 +49,8 @@ Once you've installed Chat With Code, you can interact with your code with:
 cwc
 ```
 
+![screenshot][screenshot-url]
+
 Feel free to customize the scanning behavior with available flags such as `--include` to specify file patterns 
 or `--paths` to define the directories to include in the session. For more information, run:
 
@@ -80,3 +82,4 @@ Chat With Code is provided under the MIT License. For more details, see the [LIC
 If you encounter any issues or have suggestions for improvement, please open an issue in the project's [issue tracker](https://github.com/emilkje/chat-with-code/issues).
 
 [banner-photo-url]: ./docs/assets/yelling_at_code.webp
+[screenshot-url]: ./docs/assets/screenshot.png
