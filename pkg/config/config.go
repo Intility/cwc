@@ -32,10 +32,11 @@ func NewFromEnv() (openai.ClientConfig, error) {
 	modelDeployment := os.Getenv(ModelDeploymentVar)
 
 	// if any of the required environment variables are missing, return an error
-	requiredSlice := []string{apiKey, endpoint, apiVersion, modelDeployment}
-	missingSlice := []string{}
+	requiredSlice := []string{APIKeyEnvVar, EndpointEnvVar, APIVersionEnvVar, ModelDeploymentVar}
+	var missingSlice []string
 	for i, v := range requiredSlice {
-		if v == "" {
+		_, ok := os.LookupEnv(v)
+		if !ok {
 			missingSlice = append(missingSlice, requiredSlice[i])
 		}
 	}
