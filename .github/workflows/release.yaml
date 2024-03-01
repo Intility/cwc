@@ -75,6 +75,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           body_path: ".github/RELEASE-TEMPLATE.md"
-          draft: true
+          draft: false
           files: ${{env.BINARY_NAME}}
           token: ${{secrets.GITHUB_TOKEN}}
