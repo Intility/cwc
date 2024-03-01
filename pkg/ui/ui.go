@@ -15,6 +15,7 @@ const (
 	MessageTypeWarning
 	MessageTypeError
 	MessageTypeNotice
+	MessageTypeSuccess
 )
 
 // Define ANSI color codes
@@ -23,6 +24,7 @@ const (
 	colorRed    = "\033[31m"
 	colorYellow = "\033[33m"
 	colorCyan   = "\033[36m"
+	colorGreen  = "\033[32m"
 )
 
 // messageColors maps MessageType values to their corresponding color codes.
@@ -31,6 +33,7 @@ var messageColors = map[MessageType]string{
 	MessageTypeWarning: colorYellow,
 	MessageTypeError:   colorRed,
 	MessageTypeNotice:  colorCyan,
+	MessageTypeSuccess: colorGreen,
 }
 
 func AskYesNo(prompt string, defaultYes bool) bool {

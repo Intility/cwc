@@ -15,7 +15,7 @@ func main() {
 	err := cmd.CwcCmd.Execute()
 
 	if err != nil {
-		ui.PrintMessage(fmt.Sprintf("Error: %s", err), ui.MessageTypeError)
+		ui.PrintMessage(fmt.Sprintf("Error: %s\n", err), ui.MessageTypeError)
 		os.Exit(1)
 	}
 }

@@ -32,27 +32,44 @@ go install github.com/emilkje/cwc@latest
 
 We also provide pre-built binaries for Windows, macOS, and Linux. You can download them from the [releases page](https://github.com/emilkje/cwc/releases) on GitHub.
 
-### Prerequisites
+## Getting Started
 
-Before you start using Chat With Code, make sure to set the following environment variables:
+After installing Chat With Code, you're just a few steps away from a conversational coding experience. Get everything up and running with these instructions:
 
-- `AOAI_API_KEY`: Your OpenAI API key.
-- `AOAI_ENDPOINT`: The OpenAI API endpoint.
-- `AOAI_API_VERSION`: The OpenAI API version.
-- `AOAI_MODEL_DEPLOYMENT`: The deployment of your OpenAI model.
+1. **Launch Chat With Code**: Open your terminal and enter `cwc` to start an interactive session with your codebase.
+   If you are not already signed you will be prompted to configure your credentials.
 
-### Getting Started
+2. **Authenticate**: To enable communication with your code, authenticate using your Azure credentials by executing:
 
-Once you've installed Chat With Code, you can interact with your code with:
+    ```sh
+    cwc login
+    ```
 
-```sh
-cwc
-```
+   *For a seamless login experience, follow the non-interactive authentication method below:*
+
+    1. Safeguard your API Key by storing it in a variable (avoid direct command-line input to protect the key from your history logs):
+
+         ```sh
+         read -s API_KEY
+         ```
+
+    2. Authenticate securely using the following command:
+
+         ```sh
+         cwc login \
+           --api-key=$API_KEY \
+           --endpoint "https://your-endpoint.openai.azure.com/" \
+           --api-version "2023-12-01-preview" \
+           --deployment-model "gpt-4-turbo"
+         ```
+
+   > **Security Notice**: Never input your API key directly into the command-line arguments to prevent potential exposure in shell history and process listings. The API key is securely stored in your personal keyring.
+
+After completing these steps, you will have established a secure session, ready to explore and interact with your codebase in the most natural way.
 
 ![screenshot][screenshot-url]
 
-Feel free to customize the scanning behavior with available flags such as `--include` to specify file patterns 
-or `--paths` to define the directories to include in the session. For more information, run:
+Need a more tailored experience? Try customizing your session. Use the `--include`, `--exclude` flag to filter for specific file patterns or `--paths` to set directories included in the session. Discover all the available options with:
 
 ```sh
 cwc --help
@@ -64,8 +81,8 @@ cwc --help
 
 - [ ] tests
 - [ ] support both azure and openai credentials
-- [ ] `cwc login` command to set up credentials
-- [ ] CI/CD for releases
+- [x] `cwc login` command to set up credentials
+- [x] CI/CD for releases
 - [ ] chat using web ui with `cwc web`
 - [ ] indexing/search implementation for large codebases
 - [ ] tools for dynamic context awareness

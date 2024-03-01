@@ -2,17 +2,19 @@ package cmd
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
-	"github.com/emilkje/cwc/pkg/ui"
-	"github.com/sashabaranov/go-openai"
-	"github.com/spf13/cobra"
 	"io"
 	"regexp"
 
+	"github.com/sashabaranov/go-openai"
+	"github.com/spf13/cobra"
+
 	"github.com/emilkje/cwc/pkg/config"
+	"github.com/emilkje/cwc/pkg/errors"
 	"github.com/emilkje/cwc/pkg/filetree"
 	"github.com/emilkje/cwc/pkg/gitignore"
+	"github.com/emilkje/cwc/pkg/ui"
 )
 
 var (
@@ -42,9 +44,27 @@ If you have multiple files called 'main.go' for example, you can use the --paths
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 
-		cfg, err := config.NewFromEnv()
+		cfg, err := config.NewFromConfigFile()
 		if err != nil {
-			return err
+
+			// check of validation error
+			if validationErr, ok := errors.AsConfigValidationError(err); ok {
+				for _, e := range validationErr.Errors {
+					ui.PrintMessage(fmt.Sprintf("error: %s\n", e), ui.MessageTypeError)
+				}
+				// prompt the user to sign in to refresh the config
+				if !ui.AskYesNo("do you want to login now?", true) {
+					ui.PrintMessage("see ya later!", ui.MessageTypeInfo)
+					return nil
+				}
+				// login
+				err = loginCmd.RunE(c, args)
+				if err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
 		}
 		//tk := toolkit.NewToolkit()
 		client := openai.NewClientWithConfig(cfg)
@@ -171,7 +191,7 @@ If you have multiple files called 'main.go' for example, you can use the --paths
 		answer:
 			for {
 				response, err := stream.Recv()
-				if errors.Is(err, io.EOF) {
+				if stderrors.Is(err, io.EOF) {
 					break answer
 				}
 
@@ -226,4 +246,8 @@ func init() {
 	CwcCmd.Flag("paths").Usage = "Specify a list of paths to search for files. For example, to search in the 'cmd' and 'pkg' directories, use --paths cmd,pkg"
 	CwcCmd.Flag("exclude-from-gitignore").Usage = "Exclude files from .gitignore. If set to false, files mentioned in .gitignore will not be excluded"
 	CwcCmd.Flag("exclude-git-dir").Usage = "Exclude the .git directory. If set to false, the .git directory will not be excluded"
+
+	// Add the login command to the root command so that it is available to the CLI
+	CwcCmd.AddCommand(loginCmd)
+	CwcCmd.AddCommand(logoutCmd)
 }
