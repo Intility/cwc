@@ -8,6 +8,8 @@ import (
 	"github.com/emilkje/cwc/cmd"
 )
 
+//go:generate ./bin/lang-gen
+
 func main() {
 
 	err := cmd.CwcCmd.Execute()
