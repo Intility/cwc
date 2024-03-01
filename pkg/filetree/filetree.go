@@ -1,11 +1,14 @@
 package filetree
 
 import (
+	"github.com/emilkje/cwc/pkg/ui"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 type FileNode struct {
@@ -40,14 +43,34 @@ func GatherFiles(re *regexp.Regexp, paths []string, ignorePatterns []*regexp.Reg
 				return nil
 			}
 
-			var file []byte
-			file, err = os.ReadFile(path) // #nosec
+			var f []byte
+
+			file, err := os.OpenFile(path, os.O_RDONLY, 0) // #nosec
+			if err != nil {
+				return err
+			}
+
+			defer file.Close()
+			buffer := make([]byte, 512)
+			for {
+				if _, err := file.Read(buffer); err == io.EOF {
+					break
+				}
+				// check if the file is binary
+				if !utf8.Valid(buffer) {
+					ui.PrintMessage("Skipping binary file: "+path+"\n", ui.MessageTypeWarning)
+					return nil
+				}
+				f = append(f, buffer...)
+			}
+
+			//file, err = os.ReadFile(path) // #nosec
 
 			if err != nil {
 				return err
 			}
 
-			fileMap[path] = file
+			fileMap[path] = f
 
 			// Construct the file tree
 			parts := strings.Split(path, string(os.PathSeparator))
