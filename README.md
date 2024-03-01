@@ -1,5 +1,11 @@
 # Chat With Code
 
+<div align="center">
+  <a href="https://github.com/emilkje/go-openai-toolkit">
+    <img src="docs/assets/yelling_at_code.webp" alt="Logo">
+  </a>
+</div>
+
 ## Overview
 
 Chat With Code is yet another command-line application that bridges the gap between coding and conversation. This tool lets developers engage with their codebases using natural language prompts, offering a fresh approach to code exploration and problem-solving.
@@ -72,3 +78,5 @@ Please file an issue if you encounter any problems or have suggestions for impro
 Chat With Code is provided under the MIT License. For more details, see the [LICENSE](LICENSE) file.
 
 If you encounter any issues or have suggestions for improvement, please open an issue in the project's [issue tracker](https://github.com/emilkje/chat-with-code/issues).
+
+[banner-photo-url]: ./docs/assets/yelling_at_code.webp
