@@ -80,13 +80,13 @@ If you have multiple files called 'main.go' for example, you can use the --paths
 			excludePatterns = append(excludePatterns, gitDirPattern)
 		}
 
-		fileMap, sortedPaths, rootNode, err := filetree.GatherFiles(regexp.MustCompile(includeFlag), pathsFlag, excludePatterns)
+		files, rootNode, err := filetree.GatherFiles(regexp.MustCompile(includeFlag), pathsFlag, excludePatterns)
 
 		if err != nil {
 			return err
 		}
 
-		if len(fileMap) == 0 {
+		if len(files) == 0 {
 			ui.PrintMessage("No files found matching the given criteria.\n", ui.MessageTypeWarning)
 			if !ui.AskYesNo("Do you wish to proceed?", false) {
 				ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
@@ -100,6 +100,13 @@ If you have multiple files called 'main.go' for example, you can use the --paths
 		fileTree := filetree.GenerateFileTree(rootNode, "", true)
 		ui.PrintMessage(fileTree, ui.MessageTypeInfo)
 
+		// warn the user of files larger than 100kb
+		for _, file := range files {
+			if len(file.Data) > 100000 {
+				ui.PrintMessage(fmt.Sprintf("warning: %s is very large (%d bytes) and will degrade performance.\n", file.Path, len(file.Data)), ui.MessageTypeWarning)
+			}
+		}
+
 		if !ui.AskYesNo("Do you wish to proceed?", true) {
 			ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
 			return nil
@@ -109,9 +116,9 @@ If you have multiple files called 'main.go' for example, you can use the --paths
 		contextStr += "## File tree\n\n"
 		contextStr += "```\n" + fileTree + "```\n\n"
 		contextStr += "## File contents\n\n"
-		for _, path := range sortedPaths {
-			content := fileMap[path]
-			contextStr += fmt.Sprintf("File: %s\n```golang\n%s\n```\n\n", path, content)
+		for _, file := range files {
+			// find extension by splitting on ".". if no extension, use
+			contextStr += fmt.Sprintf("./%s\n```%s\n%s\n```\n\n", file.Path, file.Type, file.Data)
 		}
 
 		systemMessage := "You are a helpful coding assistant. Below you will find relevant context to answer the user's question.\n\n" +

@@ -1,9 +1,11 @@
 package filetree
 
 import (
+	"github.com/emilkje/cwc/pkg/ui"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -14,9 +16,14 @@ type FileNode struct {
 	Children []*FileNode
 }
 
-func GatherFiles(re *regexp.Regexp, paths []string, ignorePatterns []*regexp.Regexp) (map[string][]byte, []string, *FileNode, error) {
-	fileMap := make(map[string][]byte)
-	var sortedPaths []string
+type File struct {
+	Path string
+	Data []byte
+	Type string
+}
+
+func GatherFiles(re *regexp.Regexp, paths []string, ignorePatterns []*regexp.Regexp) ([]File, *FileNode, error) {
+	var files []File
 
 	ignoreMatcher := func(path string) bool {
 		for _, pattern := range ignorePatterns {
@@ -24,6 +31,34 @@ func GatherFiles(re *regexp.Regexp, paths []string, ignorePatterns []*regexp.Reg
 				return true
 			}
 		}
+		return false
+	}
+
+	cache := make(map[string]string)
+	knownLanguage := func(path string) bool {
+		if _, ok := cache[filepath.Ext(path)]; ok {
+			return true
+		}
+		// .md should be interpreted as markdown, not lisp
+		if filepath.Ext(path) == ".md" {
+			cache[filepath.Ext(path)] = "markdown"
+			return true
+		}
+
+		for _, lang := range languages {
+			if slices.Contains(lang.Extensions, filepath.Ext(path)) {
+				// cache the extension for faster lookup
+				cache[filepath.Ext(path)] = lang.AceMode
+				return true
+			}
+			if slices.Contains(lang.Filenames, filepath.Base(path)) {
+				// cache the filename for faster lookup
+				cache[filepath.Base(path)] = lang.AceMode
+				return true
+			}
+		}
+
+		ui.PrintMessage("skipping invalid source file: "+path+"\n", ui.MessageTypeWarning)
 		return false
 	}
 
@@ -36,18 +71,29 @@ func GatherFiles(re *regexp.Regexp, paths []string, ignorePatterns []*regexp.Reg
 				return err
 			}
 
-			if !re.MatchString(path) || info.IsDir() || ignoreMatcher(path) {
+			if !re.MatchString(path) || info.IsDir() || ignoreMatcher(path) || !knownLanguage(path) {
 				return nil
 			}
 
-			var file []byte
-			file, err = os.ReadFile(path) // #nosec
+			f := &File{
+				Path: path,
+				Type: cache[filepath.Ext(path)],
+			}
+
+			file, err := os.OpenFile(path, os.O_RDONLY, 0) // #nosec
+			if err != nil {
+				return err
+			}
+
+			defer file.Close()
+
+			f.Data, err = os.ReadFile(path) // #nosec
 
 			if err != nil {
 				return err
 			}
 
-			fileMap[path] = file
+			files = append(files, *f)
 
 			// Construct the file tree
 			parts := strings.Split(path, string(os.PathSeparator))
@@ -73,16 +119,15 @@ func GatherFiles(re *regexp.Regexp, paths []string, ignorePatterns []*regexp.Reg
 		})
 
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 	}
 
-	for path := range fileMap {
-		sortedPaths = append(sortedPaths, path)
-	}
-	sort.Strings(sortedPaths)
-
-	return fileMap, sortedPaths, rootNode, nil
+	// Sort the files for consistent output
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Path < files[j].Path
+	})
+	return files, rootNode, nil
 }
 
 func GenerateFileTree(node *FileNode, indent string, isLast bool) string {

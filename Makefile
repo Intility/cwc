@@ -63,7 +63,7 @@ run: fmt vet check-env-vars ## Run the example app.
 	go run main.go
 
 .PHONY: generate
-generate: ## Generate code.
+generate: lang-gen ## Generate code.
 	go generate ./...
 
 ##@ Pre Deployment
@@ -93,6 +93,10 @@ check-env-vars:
 			echo "Error: the following env vars are not set:$$missing_vars"; \
 			exit 1; \
 	fi
+
+.PHONY: lang-gen
+lang-gen:
+	cd generator && go build -o $(LOCALBIN)/lang-gen lang-gen.go
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
