@@ -96,7 +96,7 @@ If you have multiple files called 'main.go' for example, you can use the --paths
 		}
 
 		// confirm with the user that the files are correct
-		ui.PrintMessage("The following files will be used as context:", ui.MessageTypeInfo)
+		ui.PrintMessage("The following files will be used as context:\n", ui.MessageTypeInfo)
 		fileTree := filetree.GenerateFileTree(rootNode, "", true)
 		ui.PrintMessage(fileTree, ui.MessageTypeInfo)
 
