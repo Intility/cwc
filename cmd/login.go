@@ -7,10 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	serviceName = "cwc"
-)
-
 var (
 	apiKeyFlag          string
 	endpointFlag        string
