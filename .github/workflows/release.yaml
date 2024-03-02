@@ -34,13 +34,13 @@ jobs:
         with:
           go-version: '1.22'
       - run: go test -v -cover
-  release:
-    name: Create Release
+
+  build:
+    name: Build binaries
     runs-on: 'ubuntu-latest'
     needs: test
     strategy:
       matrix:
-        # List of GOOS and GOARCH pairs from `go tool dist list`
         goosarch:
           - 'darwin/arm64'
           - 'darwin/amd64'
@@ -51,30 +51,38 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@v2
-        with:
-          go-version: '1.22'
-      - name: Get OS and arch info
+      # ...set up Go...
+      - name: Build binary
         run: |
           GOOSARCH=${{matrix.goosarch}}
           GOOS=${GOOSARCH%/*}
           GOARCH=${GOOSARCH#*/}
           BINARY_NAME=${{github.repository}}-$GOOS-$GOARCH
-          echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
-          echo "GOOS=$GOOS" >> $GITHUB_ENV
-          echo "GOARCH=$GOARCH" >> $GITHUB_ENV
-      - name: Build
-        run: |
           go build -o "$BINARY_NAME" -v
+      - name: Upload binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ github.repository }}-${{matrix.goosarch}}
+          path: ${{github.repository}}-$GOOS-$GOARCH
+
+  release:
+    name: Create Release
+    runs-on: 'ubuntu-latest'
+    needs: [ build ]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Download all binaries
+        uses: actions/download-artifact@v2
+        with:
+          path: .
       - name: Release Notes
-        run:
-          git log $(git describe HEAD~ --tags --abbrev=0)..HEAD --pretty='format:* %h %s%n  * %an <%ae>' --no-merges >> ".github/RELEASE-TEMPLATE.md"
-      - name: Release with Notes
+        run: |
+          git log $(git describe HEAD~ --tags --abbrev=0)..HEAD --pretty='format:* %h %s%n  * %an <%ae>' --no-merges > "RELEASE-TEMPLATE.md"
+      - name: Create Release with Notes
         uses: softprops/action-gh-release@v1
         with:
           body_path: ".github/RELEASE-TEMPLATE.md"
           draft: false
-          files: ${{env.BINARY_NAME}}
+          files: ./*
           token: ${{secrets.GITHUB_TOKEN}}
