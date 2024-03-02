@@ -61,11 +61,14 @@ jobs:
           GOARCH=${GOOSARCH#*/}
           BINARY_NAME=${{github.repository}}-$GOOS-$GOARCH
           go build -o "$BINARY_NAME" -v
+          echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
+          echo "GOOS=$GOOS" >> $GITHUB_ENV
+          echo "GOARCH=$GOARCH" >> $GITHUB_ENV
       - name: Upload binary
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ github.repository }}-${{matrix.goosarch}}
-          path: ${{github.repository}}-$GOOS-$GOARCH
+          name: ${{env.BINARY_NAME}}
+          path: ${{env.BINARY_NAME}}
 
   release:
     name: Create Release
