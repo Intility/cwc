@@ -4,16 +4,14 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"io"
-	"regexp"
-
+	"github.com/emilkje/cwc/pkg/pathmatcher"
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
+	"io"
 
 	"github.com/emilkje/cwc/pkg/config"
 	"github.com/emilkje/cwc/pkg/errors"
 	"github.com/emilkje/cwc/pkg/filetree"
-	"github.com/emilkje/cwc/pkg/gitignore"
 	"github.com/emilkje/cwc/pkg/ui"
 )
 
@@ -66,41 +64,52 @@ If you have multiple files called 'main.go' for example, you can use the --paths
 				return err
 			}
 		}
-		//tk := toolkit.NewToolkit()
+
 		client := openai.NewClientWithConfig(cfg)
 
-		//r := runtime.NewRuntime(client, tk)
-		excludePatterns, err := gitignore.ParseGitignore(".gitignore")
+		var excludeMatchers []pathmatcher.PathMatcher
 
-		if err != nil {
-			if excludeFromGitignoreFlag {
-				ui.PrintMessage("failed to parse .gitignore:", ui.MessageTypeWarning)
-				if !ui.AskYesNo("Do you wish to proceed without excluding files from .gitignore?", false) {
-					ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
-					return nil
-				}
-			}
-			excludePatterns = make([]*regexp.Regexp, 0)
-		}
-
-		// add exclude flag to gitignore patterns
+		// add exclude flag to excludeMatchers
 		if excludeFlag != "" {
-			excludePattern, err := regexp.Compile(excludeFlag)
+			excludeMatcher, err := pathmatcher.NewRegexPathMatcher(excludeFlag)
 			if err != nil {
 				return err
 			}
-			excludePatterns = append(excludePatterns, excludePattern)
+			excludeMatchers = append(excludeMatchers, excludeMatcher)
+		}
+
+		if excludeFromGitignoreFlag {
+			gitignoreMatcher, err := pathmatcher.NewGitignorePathMatcher(".gitignore")
+
+			if err != nil {
+				if !errors.IsFileNotExistError(err) {
+					return err
+				}
+
+				ui.PrintMessage(".gitignore does not exist, skipping.\n", ui.MessageTypeInfo)
+			} else {
+				excludeMatchers = append(excludeMatchers, gitignoreMatcher)
+			}
 		}
 
 		if excludeGitDirFlag {
-			gitDirPattern, err := regexp.Compile(`^.*\.git`)
+			// TODO: fix this so that .github is not excluded
+			gitDirMatcher, err := pathmatcher.NewRegexPathMatcher(`^.*\.git`)
 			if err != nil {
 				return err
 			}
-			excludePatterns = append(excludePatterns, gitDirPattern)
+			excludeMatchers = append(excludeMatchers, gitDirMatcher)
 		}
 
-		files, rootNode, err := filetree.GatherFiles(regexp.MustCompile(includeFlag), pathsFlag, excludePatterns)
+		excludeMatcher := pathmatcher.NewCompoundPathMatcher(excludeMatchers...)
+
+		// includeMatcher
+		includeMatcher, err := pathmatcher.NewRegexPathMatcher(includeFlag)
+		if err != nil {
+			return err
+		}
+
+		files, rootNode, err := filetree.GatherFiles(includeMatcher, excludeMatcher, pathsFlag)
 
 		if err != nil {
 			return err

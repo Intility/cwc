@@ -1,13 +1,14 @@
 package filetree
 
 import (
-	"github.com/emilkje/cwc/pkg/ui"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
+
+	pm "github.com/emilkje/cwc/pkg/pathmatcher"
+	"github.com/emilkje/cwc/pkg/ui"
 )
 
 type FileNode struct {
@@ -22,19 +23,12 @@ type File struct {
 	Type string
 }
 
-func GatherFiles(re *regexp.Regexp, paths []string, ignorePatterns []*regexp.Regexp) ([]File, *FileNode, error) {
+func GatherFiles(includeMatcher pm.PathMatcher, excludeMatcher pm.PathMatcher, pathScopes []string) ([]File, *FileNode, error) {
 	var files []File
 
-	ignoreMatcher := func(path string) bool {
-		for _, pattern := range ignorePatterns {
-			if pattern.MatchString(path) {
-				return true
-			}
-		}
-		return false
-	}
-
 	cache := make(map[string]string)
+
+	// TODO: Move this outside the file gathering function
 	knownLanguage := func(path string) bool {
 		if _, ok := cache[filepath.Ext(path)]; ok {
 			return true
@@ -64,14 +58,19 @@ func GatherFiles(re *regexp.Regexp, paths []string, ignorePatterns []*regexp.Reg
 
 	rootNode := &FileNode{Name: "/", IsDir: true}
 
-	for _, path := range paths {
+	for _, path := range pathScopes {
 		err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 
 			if err != nil {
 				return err
 			}
 
-			if !re.MatchString(path) || info.IsDir() || ignoreMatcher(path) || !knownLanguage(path) {
+			// start by skipping the .git directory
+			if strings.HasPrefix(path, ".git/") {
+				return nil
+			}
+
+			if !includeMatcher.Match(path) || info.IsDir() || excludeMatcher.Match(path) || !knownLanguage(path) {
 				return nil
 			}
 

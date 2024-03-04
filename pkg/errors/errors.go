@@ -41,3 +41,17 @@ func AsConfigValidationError(err error) (*ConfigValidationError, bool) {
 	}
 	return nil, false
 }
+
+// FileNotExistError is an error type for when a file does not exist.
+type FileNotExistError struct {
+	FileName string
+}
+
+func (e FileNotExistError) Error() string {
+	return fmt.Sprintf("file %s does not exist", e.FileName)
+}
+
+func IsFileNotExistError(err error) bool {
+	var fileDoesNotExistError FileNotExistError
+	return errors.As(err, &fileDoesNotExistError)
+}
