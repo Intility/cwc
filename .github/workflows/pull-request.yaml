@@ -1,8 +1,9 @@
 # Triggers the workflow on pull request events
+name: PR Checks
 on:
   pull_request:
     branches:
-      - master
+      - main
 
 defaults:
   run:
@@ -28,7 +29,6 @@ jobs:
   test:
     name: Run tests
     runs-on: 'ubuntu-latest'
-    needs: lint
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v4
@@ -39,7 +39,6 @@ jobs:
   security:
     name: Security Scan
     runs-on: 'ubuntu-latest'
-    needs: test
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4

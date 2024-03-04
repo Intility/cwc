@@ -82,7 +82,9 @@ cwc --help
 - [ ] tests
 - [ ] support both azure and openai credentials
 - [x] `cwc login` command to set up credentials
-- [x] CI/CD for releases
+- [ ] Pull request gating
+- [ ] Automatic version bumping
+- [ ] Automatic release notes generation
 - [ ] chat using web ui with `cwc web`
 - [ ] indexing/search implementation for large codebases
 - [ ] tools for dynamic context awareness
