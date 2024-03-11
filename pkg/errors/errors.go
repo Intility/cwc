@@ -55,3 +55,16 @@ func IsFileNotExistError(err error) bool {
 	var fileDoesNotExistError FileNotExistError
 	return errors.As(err, &fileDoesNotExistError)
 }
+
+type GitNotInstalledError struct {
+	Message string
+}
+
+func (e GitNotInstalledError) Error() string {
+	return e.Message
+}
+
+func IsGitNotInstalledError(err error) bool {
+	var gitNotInstalledError GitNotInstalledError
+	return errors.As(err, &gitNotInstalledError)
+}

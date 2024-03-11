@@ -79,16 +79,20 @@ If you have multiple files called 'main.go' for example, you can use the --paths
 		}
 
 		if excludeFromGitignoreFlag {
-			gitignoreMatcher, err := pathmatcher.NewGitignorePathMatcher(".gitignore")
+			gitignoreMatcher, err := pathmatcher.NewGitignorePathMatcher()
 
 			if err != nil {
-				if !errors.IsFileNotExistError(err) {
+				if errors.IsGitNotInstalledError(err) {
+					ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", ui.MessageTypeWarning)
+				} else {
 					return err
 				}
-
-				ui.PrintMessage(".gitignore does not exist, skipping.\n", ui.MessageTypeInfo)
 			} else {
-				excludeMatchers = append(excludeMatchers, gitignoreMatcher)
+				if !gitignoreMatcher.Any() {
+					ui.PrintMessage("no files ignored by git\n", ui.MessageTypeNotice)
+				} else {
+					excludeMatchers = append(excludeMatchers, gitignoreMatcher)
+				}
 			}
 		}
 
