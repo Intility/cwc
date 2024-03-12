@@ -8,6 +8,8 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 	"io"
+	"os"
+	"strings"
 
 	"github.com/emilkje/cwc/pkg/config"
 	"github.com/emilkje/cwc/pkg/errors"
@@ -26,224 +28,337 @@ var (
 var CwcCmd = &cobra.Command{
 	Use:   "cwc [prompt]",
 	Short: "starts a new chat session",
-	Long: `Starts a new chat session with detailed control over what files are included or excluded using regular expressions.
+	Long: `The 'cwc' command initiates a new chat session, providing granular control over the inclusion and exclusion of files via regular expression patterns. It allows for specification of paths to include or exclude files from the chat context.
 
-The --include flag allows you to specify a regular expression to match the files that should be included in the chat context. Only files that match the given pattern will be considered.
+Features at a glance:
 
-The --exclude flag allows you to specify a regular expression to match the files that should be excluded from the chat context. If a file matches the given pattern, it will be ignored even if it matches the include pattern.
+- Regex-based file inclusion and exclusion patterns
+- .gitignore integration for ignoring files
+- Option to specify directories for inclusion scope
+- Interactive file selection and confirmation
+- Reading from standard input for a non-interactive session
 
-If the --exclude-from-gitignore is provided and set to true (which is the default), the files mentioned in the .gitignore file will be excluded automatically.
+The command can also receive context from standard input, useful for piping the output from another command as input.
 
-For example, if you want to include all '.go' files but exclude files in 'vendor/' directory, you would start the chat with:
-> cwc --include='\.go$' --exclude='vendor/'
+Examples:
 
-If you have multiple files called 'main.go' for example, you can use the --paths qualifier to specify which files to include. For example:
-> cwc --include='\.go$' --paths='./cmd'`,
+Including all '.go' files while excluding the 'vendor/' directory:
+> cwc --include='.*.go$' --exclude='vendor/'
+
+Including 'main.go' files from a specific path:
+> cwc --include='main.go' --paths='./cmd'
+
+Using the output of another command:
+> git diff | cwc "Short commit message for these changes"`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(c *cobra.Command, args []string) error {
 
-		cfg, err := config.NewFromConfigFile()
-		if err != nil {
-
-			// check of validation error
-			if validationErr, ok := errors.AsConfigValidationError(err); ok {
-				for _, e := range validationErr.Errors {
-					ui.PrintMessage(fmt.Sprintf("error: %s\n", e), ui.MessageTypeError)
-				}
-				// prompt the user to sign in to refresh the config
-				if !ui.AskYesNo("do you want to login now?", true) {
-					ui.PrintMessage("see ya later!", ui.MessageTypeInfo)
-					return nil
-				}
-				// login
-				err = loginCmd.RunE(c, args)
-				if err != nil {
-					return err
-				}
-			} else {
-				return err
-			}
-		}
-
-		client := openai.NewClientWithConfig(cfg)
-
-		var excludeMatchers []pathmatcher.PathMatcher
-
-		// add exclude flag to excludeMatchers
-		if excludeFlag != "" {
-			excludeMatcher, err := pathmatcher.NewRegexPathMatcher(excludeFlag)
-			if err != nil {
-				return err
-			}
-			excludeMatchers = append(excludeMatchers, excludeMatcher)
-		}
-
-		if excludeFromGitignoreFlag {
-			gitignoreMatcher, err := pathmatcher.NewGitignorePathMatcher()
-
-			if err != nil {
-				if errors.IsGitNotInstalledError(err) {
-					ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", ui.MessageTypeWarning)
-				} else {
-					return err
-				}
-			} else {
-				if !gitignoreMatcher.Any() {
-					ui.PrintMessage("no files ignored by git\n", ui.MessageTypeNotice)
-				} else {
-					excludeMatchers = append(excludeMatchers, gitignoreMatcher)
-				}
-			}
-		}
-
-		if excludeGitDirFlag {
-			// TODO: fix this so that .github is not excluded
-			gitDirMatcher, err := pathmatcher.NewRegexPathMatcher(`^.*\.git`)
-			if err != nil {
-				return err
-			}
-			excludeMatchers = append(excludeMatchers, gitDirMatcher)
-		}
-
-		excludeMatcher := pathmatcher.NewCompoundPathMatcher(excludeMatchers...)
-
-		// includeMatcher
-		includeMatcher, err := pathmatcher.NewRegexPathMatcher(includeFlag)
+		// check if stdin.Stat is a
+		fi, err := os.Stdin.Stat()
 		if err != nil {
 			return err
 		}
 
-		files, rootNode, err := filetree.GatherFiles(includeMatcher, excludeMatcher, pathsFlag)
+		if (fi.Mode() & os.ModeCharDevice) == 0 {
+			// stdin is a pipe
+			// read from stdin
+			if len(args) == 0 {
+				return fmt.Errorf("prompt is required when reading context from stdin")
+			}
 
-		if err != nil {
-			return err
+			var systemContext string
+			inputBytes, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return err
+			}
+			systemContext = string(inputBytes)
+
+			cfg, err := config.NewFromConfigFile()
+			if err != nil {
+				return err
+			}
+
+			client := openai.NewClientWithConfig(cfg)
+			systemMessage := createSystemMessageFromContext(systemContext)
+			return nonInteractive(client, systemMessage, args[0])
 		}
 
-		if len(files) == 0 {
-			ui.PrintMessage("No files found matching the given criteria.\n", ui.MessageTypeWarning)
-			if !ui.AskYesNo("Do you wish to proceed?", false) {
-				ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
+		return interactiveChat(c, args)
+	},
+}
+
+func interactiveChat(c *cobra.Command, args []string) error {
+	_, err := config.NewFromConfigFile()
+	if err != nil {
+		// check of validation error
+		if validationErr, ok := errors.AsConfigValidationError(err); ok {
+			for _, e := range validationErr.Errors {
+				ui.PrintMessage(fmt.Sprintf("error: %s\n", e), ui.MessageTypeError)
+			}
+			// prompt the user to sign in to refresh the config
+			if !ui.AskYesNo("do you want to login now?", true) {
+				ui.PrintMessage("see ya later!", ui.MessageTypeInfo)
 				return nil
 			}
-			return nil
-		}
-
-		// confirm with the user that the files are correct
-		ui.PrintMessage("The following files will be used as context:\n", ui.MessageTypeInfo)
-		fileTree := filetree.GenerateFileTree(rootNode, "", true)
-		ui.PrintMessage(fileTree, ui.MessageTypeInfo)
-
-		// warn the user of files larger than 100kb
-		for _, file := range files {
-			if len(file.Data) > 100000 {
-				ui.PrintMessage(fmt.Sprintf("warning: %s is very large (%d bytes) and will degrade performance.\n", file.Path, len(file.Data)), ui.MessageTypeWarning)
+			// login
+			err = loginCmd.RunE(c, args)
+			if err != nil {
+				return err
 			}
+		} else {
+			return err
 		}
+	}
 
-		if !ui.AskYesNo("Do you wish to proceed?", true) {
+	cfg, err := config.NewFromConfigFile()
+	if err != nil {
+		return err
+	}
+	client := openai.NewClientWithConfig(cfg)
+	files, rootNode, err := gatherContext()
+
+	if err != nil {
+		return err
+	}
+
+	if len(files) == 0 {
+		ui.PrintMessage("No files found matching the given criteria.\n", ui.MessageTypeWarning)
+		if !ui.AskYesNo("Do you wish to proceed?", false) {
 			ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
 			return nil
 		}
+		return nil
+	}
 
-		contextStr := "Context:\n\n"
-		contextStr += "## File tree\n\n"
-		contextStr += "```\n" + fileTree + "```\n\n"
-		contextStr += "## File contents\n\n"
-		for _, file := range files {
-			// find extension by splitting on ".". if no extension, use
-			contextStr += fmt.Sprintf("./%s\n```%s\n%s\n```\n\n", file.Path, file.Type, file.Data)
+	// confirm with the user that the files are correct
+	ui.PrintMessage("The following files will be used as context:\n", ui.MessageTypeInfo)
+	fileTree := filetree.GenerateFileTree(rootNode, "", true)
+	ui.PrintMessage(fileTree, ui.MessageTypeInfo)
+
+	// warn the user of files larger than 100kb
+	for _, file := range files {
+		if len(file.Data) > 100000 {
+			ui.PrintMessage(fmt.Sprintf("warning: %s is very large (%d bytes) and will degrade performance.\n", file.Path, len(file.Data)), ui.MessageTypeWarning)
+		}
+	}
+
+	if !ui.AskYesNo("Do you wish to proceed?", true) {
+		ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
+		return nil
+	}
+
+	contextStr := "Context:\n\n"
+	contextStr += "## File tree\n\n"
+	contextStr += "```\n" + fileTree + "```\n\n"
+	contextStr += "## File contents\n\n"
+	for _, file := range files {
+		// find extension by splitting on ".". if no extension, use
+		contextStr += fmt.Sprintf("./%s\n```%s\n%s\n```\n\n", file.Path, file.Type, file.Data)
+	}
+
+	systemMessage := "You are a helpful coding assistant. Below you will find relevant context to answer the user's question.\n\n" +
+		contextStr + "\n\n" +
+		"Please follow the users instructions, you can do this!"
+
+	ui.PrintMessage("Type '/exit' to end the chat.\n", ui.MessageTypeNotice)
+
+	initialUserMessage := ""
+	if len(args) > 0 {
+		initialUserMessage = args[0]
+		ui.PrintMessage(fmt.Sprintf("👤: %s\n", initialUserMessage), ui.MessageTypeInfo)
+	} else {
+		ui.PrintMessage("👤: ", ui.MessageTypeInfo)
+		initialUserMessage = ui.ReadUserInput()
+	}
+
+	if initialUserMessage == "/exit" {
+		return nil
+	}
+
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: systemMessage,
+		},
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: initialUserMessage,
+		},
+	}
+
+	for {
+		req := openai.ChatCompletionRequest{
+			Model: openai.GPT4TurboPreview,
+			//MaxTokens: 4096,
+			Messages: messages,
+			Stream:   true,
 		}
 
-		systemMessage := "You are a helpful coding assistant. Below you will find relevant context to answer the user's question.\n\n" +
-			contextStr + "\n\n" +
-			"Please follow the users instructions, you can do this!"
-
-		ui.PrintMessage("Type '/exit' to end the chat.\n", ui.MessageTypeNotice)
-
-		initialUserMessage := ""
-		if len(args) > 0 {
-			initialUserMessage = args[0]
-			ui.PrintMessage(fmt.Sprintf("👤: %s\n", initialUserMessage), ui.MessageTypeInfo)
-		} else {
-			ui.PrintMessage("👤: ", ui.MessageTypeInfo)
-			initialUserMessage = ui.ReadUserInput()
+		ctx := context.Background()
+		stream, err := client.CreateChatCompletionStream(ctx, req)
+		if err != nil {
+			return err
 		}
 
-		if initialUserMessage == "/exit" {
-			return nil
-		}
+		messageStr := ""
 
-		messages := []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleSystem,
-				Content: systemMessage,
-			},
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: initialUserMessage,
-			},
-		}
-
+		ui.PrintMessage("🤖: ", ui.MessageTypeInfo)
+	answer:
 		for {
-			req := openai.ChatCompletionRequest{
-				Model: openai.GPT4TurboPreview,
-				//MaxTokens: 4096,
-				Messages: messages,
-				Stream:   true,
+			response, err := stream.Recv()
+			if stderrors.Is(err, io.EOF) {
+				break answer
 			}
 
-			ctx := context.Background()
-			stream, err := client.CreateChatCompletionStream(ctx, req)
 			if err != nil {
 				return err
 			}
 
-			messageStr := ""
-
-			ui.PrintMessage("🤖: ", ui.MessageTypeInfo)
-		answer:
-			for {
-				response, err := stream.Recv()
-				if stderrors.Is(err, io.EOF) {
-					break answer
-				}
-
-				if err != nil {
-					return err
-				}
-
-				if len(response.Choices) == 0 {
-					continue answer
-				}
-
-				messageStr = response.Choices[0].Delta.Content
-				ui.PrintMessage(response.Choices[0].Delta.Content, ui.MessageTypeInfo)
+			if len(response.Choices) == 0 {
+				continue answer
 			}
 
-			messages = append(messages, openai.ChatCompletionMessage{
-				Role:    openai.ChatMessageRoleAssistant,
-				Content: messageStr,
-			})
-
-			// read user input until newline
-			ui.PrintMessage("\n👤: ", ui.MessageTypeInfo)
-			userInput := ui.ReadUserInput()
-
-			// check for slash commands
-			if userInput == "/exit" {
-				break
-			}
-
-			messages = append(messages, openai.ChatCompletionMessage{
-				Role:    openai.ChatMessageRoleUser,
-				Content: userInput,
-			})
-
-			// close the stream for the current request
-			stream.Close()
+			messageStr = response.Choices[0].Delta.Content
+			ui.PrintMessage(response.Choices[0].Delta.Content, ui.MessageTypeInfo)
 		}
-		return nil
-	},
+
+		messages = append(messages, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleAssistant,
+			Content: messageStr,
+		})
+
+		// read user input until newline
+		ui.PrintMessage("\n👤: ", ui.MessageTypeInfo)
+		userInput := ui.ReadUserInput()
+
+		// check for slash commands
+		if userInput == "/exit" {
+			break
+		}
+
+		messages = append(messages, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleUser,
+			Content: userInput,
+		})
+
+		// close the stream for the current request
+		stream.Close()
+	}
+
+	return nil
+}
+
+func nonInteractive(client *openai.Client, systemMessage string, prompt string) error {
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: systemMessage,
+		},
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: prompt,
+		},
+	}
+
+	req := openai.ChatCompletionRequest{
+		Model: openai.GPT4TurboPreview,
+		//MaxTokens: 4096,
+		Messages: messages,
+		Stream:   true,
+	}
+
+	stream, err := client.CreateChatCompletionStream(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	defer stream.Close()
+
+answer:
+	for {
+		response, err := stream.Recv()
+		if stderrors.Is(err, io.EOF) {
+			break answer
+		}
+
+		if err != nil {
+			return err
+		}
+
+		if len(response.Choices) == 0 {
+			continue answer
+		}
+
+		fmt.Print(response.Choices[0].Delta.Content)
+	}
+
+	return nil
+}
+
+func createSystemMessageFromContext(context string) string {
+	var systemMessage strings.Builder
+	systemMessage.WriteString("You are a helpful coding assistant. Below you will find relevant context to answer the user's question.\n\n")
+	systemMessage.WriteString("Context:\n")
+	systemMessage.WriteString(context)
+	systemMessage.WriteString("\n\n")
+	systemMessage.WriteString("Please follow the users instructions, you can do this!")
+	return systemMessage.String()
+}
+
+func gatherContext() ([]filetree.File, *filetree.FileNode, error) {
+	var excludeMatchers []pathmatcher.PathMatcher
+
+	// add exclude flag to excludeMatchers
+	if excludeFlag != "" {
+		excludeMatcher, err := pathmatcher.NewRegexPathMatcher(excludeFlag)
+		if err != nil {
+			return nil, nil, err
+		}
+		excludeMatchers = append(excludeMatchers, excludeMatcher)
+	}
+
+	if excludeFromGitignoreFlag {
+		gitignoreMatcher, err := pathmatcher.NewGitignorePathMatcher()
+
+		if err != nil {
+			if errors.IsGitNotInstalledError(err) {
+				ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", ui.MessageTypeWarning)
+			} else {
+				return nil, nil, err
+			}
+		} else {
+			if !gitignoreMatcher.Any() {
+				ui.PrintMessage("no files ignored by git\n", ui.MessageTypeNotice)
+			} else {
+				excludeMatchers = append(excludeMatchers, gitignoreMatcher)
+			}
+		}
+	}
+
+	if excludeGitDirFlag {
+		// TODO: fix this so that .github is not excluded
+		gitDirMatcher, err := pathmatcher.NewRegexPathMatcher(`^.*\.git`)
+		if err != nil {
+			return nil, nil, err
+		}
+		excludeMatchers = append(excludeMatchers, gitDirMatcher)
+	}
+
+	excludeMatcher := pathmatcher.NewCompoundPathMatcher(excludeMatchers...)
+
+	// includeMatcher
+	includeMatcher, err := pathmatcher.NewRegexPathMatcher(includeFlag)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	files, rootNode, err := filetree.GatherFiles(includeMatcher, excludeMatcher, pathsFlag)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return files, rootNode, nil
 }
 
 func init() {
