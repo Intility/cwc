@@ -2,16 +2,19 @@ package config
 
 import (
 	"encoding/json"
-	"github.com/emilkje/cwc/pkg/errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/sashabaranov/go-openai"
+
+	"github.com/emilkje/cwc/pkg/errors"
 )
 
 const (
-	configFileName = "cwc.json" // The name of the config file we want to save
+	configFileName        = "cwc.json" // The name of the config file we want to save
+	configFilePermissions = 0o600      // The permissions we want to set on the config file
 )
 
 func NewFromConfigFile() (openai.ClientConfig, error) {
@@ -27,7 +30,7 @@ func NewFromConfigFile() (openai.ClientConfig, error) {
 	}
 
 	config := openai.DefaultAzureConfig(cfg.APIKey(), cfg.Endpoint)
-	config.APIVersion = cfg.ApiVersion
+	config.APIVersion = cfg.APIVersion
 	config.AzureModelMapperFunc = func(model string) string {
 		return cfg.ModelDeployment
 	}
@@ -42,48 +45,49 @@ func SanitizeInput(input string) string {
 
 type Config struct {
 	Endpoint        string `json:"endpoint"`
-	ApiVersion      string `json:"apiVersion"`
+	APIVersion      string `json:"apiVersion"`
 	ModelDeployment string `json:"modelDeployment"`
 	// Keep APIKey unexported to avoid accidental exposure
 	apiKey string
 }
 
-// NewConfig creates a new Config object
+// NewConfig creates a new Config object.
 func NewConfig(endpoint, apiVersion, modelDeployment string) *Config {
 	return &Config{
 		Endpoint:        endpoint,
-		ApiVersion:      apiVersion,
+		APIVersion:      apiVersion,
 		ModelDeployment: modelDeployment,
+		apiKey:          "",
 	}
 }
 
-// SetAPIKey sets the confidential field apiKey
+// SetAPIKey sets the confidential field apiKey.
 func (c *Config) SetAPIKey(apiKey string) {
 	c.apiKey = apiKey
 }
 
-// APIKey returns the confidential field apiKey
+// APIKey returns the confidential field apiKey.
 func (c *Config) APIKey() string {
 	return c.apiKey
 }
 
 // ValidateConfig checks if a Config object has valid data.
-func ValidateConfig(c *Config) error {
+func ValidateConfig(cfg *Config) error {
 	var validationErrors []string
 
-	if c.APIKey() == "" {
+	if cfg.APIKey() == "" {
 		validationErrors = append(validationErrors, "apiKey must be provided and not be empty")
 	}
 
-	if c.Endpoint == "" {
+	if cfg.Endpoint == "" {
 		validationErrors = append(validationErrors, "endpoint must be provided and not be empty")
 	}
 
-	if c.ApiVersion == "" {
+	if cfg.APIVersion == "" {
 		validationErrors = append(validationErrors, "apiVersion must be provided and not be empty")
 	}
 
-	if c.ModelDeployment == "" {
+	if cfg.ModelDeployment == "" {
 		validationErrors = append(validationErrors, "modelDeployment must be provided and not be empty")
 	}
 
@@ -96,7 +100,6 @@ func ValidateConfig(c *Config) error {
 
 // SaveConfig writes the configuration to disk, and the API key to the keyring.
 func SaveConfig(config *Config) error {
-
 	// validate the configuration
 	err := ValidateConfig(config)
 	if err != nil {
@@ -112,16 +115,21 @@ func SaveConfig(config *Config) error {
 
 	data, err := json.Marshal(config)
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshalling config data: %w", err)
 	}
 
-	err = storeApiKeyInKeyring(config.APIKey())
+	err = storeAPIKeyInKeyring(config.APIKey())
 
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(configFilePath, data, 0644)
+	err = os.WriteFile(configFilePath, data, configFilePermissions)
+	if err != nil {
+		return fmt.Errorf("error writing config file: %w", err)
+	}
+
+	return nil
 }
 
 // LoadConfig reads the configuration from disk and loads the API key from the keyring.
@@ -132,19 +140,19 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	configFilePath := filepath.Join(configDir, configFileName)
-	data, err := os.ReadFile(configFilePath)
+	data, err := os.ReadFile(filepath.Join(configDir, configFileName))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading config file: %w", err)
 	}
 
 	var cfg Config
 	err = json.Unmarshal(data, &cfg)
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error unmarshalling config data: %w", err)
 	}
 
-	apiKey, err := getApiKeyFromKeyring()
+	apiKey, err := getAPIKeyFromKeyring()
 	if err != nil {
 		return nil, err
 	}
@@ -164,10 +172,10 @@ func ClearConfig() error {
 
 	err = os.Remove(configFilePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("error removing config file: %w", err)
 	}
 
-	err = clearApiKeyInKeyring()
+	err = clearAPIKeyInKeyring()
 	if err != nil {
 		return err
 	}

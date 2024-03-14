@@ -1,6 +1,7 @@
 package filetree
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -23,44 +24,25 @@ type File struct {
 	Type string
 }
 
-func GatherFiles(includeMatcher pm.PathMatcher, excludeMatcher pm.PathMatcher, pathScopes []string) ([]File, *FileNode, error) {
+type FileGatherOptions struct {
+	IncludeMatcher pm.PathMatcher
+	ExcludeMatcher pm.PathMatcher
+	PathScopes     []string
+}
+
+func GatherFiles(opts *FileGatherOptions) ([]File, *FileNode, error) { //nolint:funlen,gocognit,cyclop
+	includeMatcher := opts.IncludeMatcher
+	excludeMatcher := opts.ExcludeMatcher
+	pathScopes := opts.PathScopes
+
 	var files []File
 
-	cache := make(map[string]string)
+	knownLanguage := cachedLanguageChecker()
 
-	// TODO: Move this outside the file gathering function
-	knownLanguage := func(path string) bool {
-		if _, ok := cache[filepath.Ext(path)]; ok {
-			return true
-		}
-		// .md should be interpreted as markdown, not lisp
-		if filepath.Ext(path) == ".md" {
-			cache[filepath.Ext(path)] = "markdown"
-			return true
-		}
-
-		for _, lang := range languages {
-			if slices.Contains(lang.Extensions, filepath.Ext(path)) {
-				// cache the extension for faster lookup
-				cache[filepath.Ext(path)] = lang.AceMode
-				return true
-			}
-			if slices.Contains(lang.Filenames, filepath.Base(path)) {
-				// cache the filename for faster lookup
-				cache[filepath.Base(path)] = lang.AceMode
-				return true
-			}
-		}
-
-		ui.PrintMessage("skipping invalid source file: "+path+"\n", ui.MessageTypeWarning)
-		return false
-	}
-
-	rootNode := &FileNode{Name: "/", IsDir: true}
+	rootNode := &FileNode{Name: "/", IsDir: true, Children: []*FileNode{}}
 
 	for _, path := range pathScopes {
 		err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-
 			if err != nil {
 				return err
 			}
@@ -70,55 +52,73 @@ func GatherFiles(includeMatcher pm.PathMatcher, excludeMatcher pm.PathMatcher, p
 				return nil
 			}
 
-			if !includeMatcher.Match(path) || info.IsDir() || excludeMatcher.Match(path) || !knownLanguage(path) {
+			if !includeMatcher.Match(path) || info.IsDir() || excludeMatcher.Match(path) {
 				return nil
 			}
 
-			f := &File{
+			fileType, ok := knownLanguage(path)
+
+			if !ok {
+				ui.PrintMessage("skipping unknown file type: "+path+"\n", ui.MessageTypeWarning)
+				return nil
+			}
+
+			file := &File{
 				Path: path,
-				Type: cache[filepath.Ext(path)],
+				Type: fileType,
+				Data: []byte{},
 			}
 
-			file, err := os.OpenFile(path, os.O_RDONLY, 0) // #nosec
+			codeFile, err := os.OpenFile(path, os.O_RDONLY, 0) // #nosec
 			if err != nil {
-				return err
+				return fmt.Errorf("error opening codeFile: %w", err)
 			}
 
-			defer file.Close()
+			defer func() {
+				err = codeFile.Close()
+				if err != nil {
+					ui.PrintMessage(fmt.Sprintf("error closing codeFile: %s\n", err), ui.MessageTypeError)
+				}
+			}()
 
-			f.Data, err = os.ReadFile(path) // #nosec
+			file.Data, err = os.ReadFile(path) // #nosec
 
 			if err != nil {
-				return err
+				return fmt.Errorf("error reading codeFile: %w", err)
 			}
 
-			files = append(files, *f)
+			files = append(files, *file)
 
-			// Construct the file tree
+			// Construct the codeFile tree
 			parts := strings.Split(path, string(os.PathSeparator))
 			current := rootNode
-			for _, part := range parts[:len(parts)-1] { // Exclude the last part which is the file itself
+
+			for _, part := range parts[:len(parts)-1] { // Exclude the last part which is the codeFile itself
 				found := false
+
 				for _, child := range current.Children {
 					if child.Name == part && child.IsDir {
 						current = child
 						found = true
+
 						break
 					}
 				}
+
 				if !found {
-					newNode := &FileNode{Name: part, IsDir: true}
+					newNode := &FileNode{Name: part, IsDir: true, Children: []*FileNode{}}
 					current.Children = append(current.Children, newNode)
 					current = newNode
 				}
 			}
-			current.Children = append(current.Children, &FileNode{Name: parts[len(parts)-1], IsDir: false})
+
+			current.Children = append(current.Children,
+				&FileNode{Name: parts[len(parts)-1], IsDir: false, Children: []*FileNode{}})
 
 			return nil
 		})
-
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("error walking the path: %w", err)
 		}
 	}
 
@@ -126,7 +126,54 @@ func GatherFiles(includeMatcher pm.PathMatcher, excludeMatcher pm.PathMatcher, p
 	sort.Slice(files, func(i, j int) bool {
 		return files[i].Path < files[j].Path
 	})
+
 	return files, rootNode, nil
+}
+
+type languageCheckerCache struct {
+	cache     map[string]string
+	cacheHits int
+}
+
+func (l *languageCheckerCache) Get(ext string) (string, bool) {
+	val, ok := l.cache[ext]
+	return val, ok
+}
+
+func (l *languageCheckerCache) Set(ext, lang string) {
+	l.cache[ext] = lang
+}
+
+func cachedLanguageChecker() func(string) (string, bool) {
+	cache := &languageCheckerCache{cache: make(map[string]string), cacheHits: 0}
+
+	return func(path string) (string, bool) {
+		if ext, ok := cache.Get(filepath.Ext(path)); ok {
+			cache.cacheHits++
+			return ext, true
+		}
+		// .md should be interpreted as markdown, not lisp
+		if filepath.Ext(path) == ".md" {
+			cache.Set(filepath.Ext(path), "markdown")
+			return "markdown", true
+		}
+
+		for _, lang := range languages {
+			if slices.Contains(lang.Extensions, filepath.Ext(path)) {
+				// cache the extension for faster lookup
+				cache.Set(filepath.Ext(path), lang.AceMode)
+				return lang.AceMode, true
+			}
+
+			if slices.Contains(lang.Filenames, filepath.Base(path)) {
+				// cache the filename for faster lookup
+				cache.Set(filepath.Base(path), lang.AceMode)
+				return lang.AceMode, true
+			}
+		}
+
+		return "", false
+	}
 }
 
 func GenerateFileTree(node *FileNode, indent string, isLast bool) string {

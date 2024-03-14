@@ -1,33 +1,28 @@
 package cmd
 
 import (
+	stderrors "errors"
 	"fmt"
-	"github.com/emilkje/cwc/pkg/chat"
-	"github.com/emilkje/cwc/pkg/pathmatcher"
-	"github.com/sashabaranov/go-openai"
-	"github.com/spf13/cobra"
 	"io"
 	"os"
 	"strings"
 
+	"github.com/sashabaranov/go-openai"
+	"github.com/spf13/cobra"
+
+	"github.com/emilkje/cwc/pkg/chat"
 	"github.com/emilkje/cwc/pkg/config"
 	"github.com/emilkje/cwc/pkg/errors"
 	"github.com/emilkje/cwc/pkg/filetree"
+	"github.com/emilkje/cwc/pkg/pathmatcher"
 	"github.com/emilkje/cwc/pkg/ui"
 )
 
-var (
-	includeFlag              string
-	excludeFlag              string
-	pathsFlag                []string
-	excludeFromGitignoreFlag bool
-	excludeGitDirFlag        bool
-)
-
-var CwcCmd = &cobra.Command{
-	Use:   "cwc [prompt]",
-	Short: "starts a new chat session",
-	Long: `The 'cwc' command initiates a new chat session, providing granular control over the inclusion and exclusion of files via regular expression patterns. It allows for specification of paths to include or exclude files from the chat context.
+const (
+	warnFileSizeThreshold = 100000
+	longDescription       = `The 'cwc' command initiates a new chat session, 
+providing granular control over the inclusion and exclusion of files via regular expression patterns. 
+It allows for specification of paths to include or exclude files from the chat context.
 
 Features at a glance:
 
@@ -48,96 +43,165 @@ Including 'main.go' files from a specific path:
 > cwc --include='main.go' --paths='./cmd'
 
 Using the output of another command:
-> git diff | cwc "Short commit message for these changes"`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: func(c *cobra.Command, args []string) error {
+> git diff | cwc "Short commit message for these changes"`
+)
 
-		// check if stdin.Stat is a
-		fi, err := os.Stdin.Stat()
-		if err != nil {
-			return err
-		}
+func CreateRootCommand() *cobra.Command {
+	var (
+		includeFlag              string
+		excludeFlag              string
+		pathsFlag                []string
+		excludeFromGitignoreFlag bool
+		excludeGitDirFlag        bool
+	)
 
-		if (fi.Mode() & os.ModeCharDevice) == 0 {
-			// stdin is a pipe
-			// read from stdin
-			if len(args) == 0 {
-				return fmt.Errorf("prompt is required when reading context from stdin")
+	loginCmd := createLoginCmd()
+	logoutCmd := createLogoutCmd()
+
+	cmd := &cobra.Command{
+		Use:   "cwc [prompt]",
+		Short: "starts a new chat session",
+		Long:  longDescription,
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if isPiped(os.Stdin) {
+				// stdin is not a terminal, typically piped from another command
+				if len(args) == 0 {
+					return &errors.NoPromptProvidedError{Message: "no prompt provided"}
+				}
+
+				var systemContext string
+
+				inputBytes, err := io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("error reading from stdin: %w", err)
+				}
+				systemContext = string(inputBytes)
+
+				return nonInteractive(systemContext, args[0])
 			}
 
-			var systemContext string
-			inputBytes, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return err
-			}
-			systemContext = string(inputBytes)
-
-			cfg, err := config.NewFromConfigFile()
-			if err != nil {
-				return err
+			gatherOpts := &chatOptions{
+				includeFlag:              includeFlag,
+				excludeFlag:              excludeFlag,
+				pathsFlag:                pathsFlag,
+				excludeFromGitignoreFlag: excludeFromGitignoreFlag,
+				excludeGitDirFlag:        excludeGitDirFlag,
 			}
 
-			client := openai.NewClientWithConfig(cfg)
-			systemMessage := createSystemMessageFromContext(systemContext)
-			return nonInteractive(client, systemMessage, args[0])
-		}
-
-		return interactiveChat(c, args)
-	},
-}
-
-func interactiveChat(c *cobra.Command, args []string) error {
-	_, err := config.NewFromConfigFile()
-	if err != nil {
-		// check of validation error
-		if validationErr, ok := errors.AsConfigValidationError(err); ok {
-			for _, e := range validationErr.Errors {
-				ui.PrintMessage(fmt.Sprintf("error: %s\n", e), ui.MessageTypeError)
-			}
-			// prompt the user to sign in to refresh the config
-			if !ui.AskYesNo("do you want to login now?", true) {
-				ui.PrintMessage("see ya later!", ui.MessageTypeInfo)
-				return nil
-			}
-			// login
-			err = loginCmd.RunE(c, args)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
+			return interactiveChat(cmd, args, gatherOpts, loginCmd)
+		},
 	}
 
+	initFlags(cmd, &flags{
+		includeFlag:              &includeFlag,
+		excludeFlag:              &excludeFlag,
+		pathsFlag:                &pathsFlag,
+		excludeFromGitignoreFlag: &excludeFromGitignoreFlag,
+		excludeGitDirFlag:        &excludeGitDirFlag,
+	})
+
+	cmd.AddCommand(loginCmd)
+	cmd.AddCommand(logoutCmd)
+
+	return cmd
+}
+
+type flags struct {
+	includeFlag              *string
+	excludeFlag              *string
+	pathsFlag                *[]string
+	excludeFromGitignoreFlag *bool
+	excludeGitDirFlag        *bool
+}
+
+func initFlags(cmd *cobra.Command, flags *flags) {
+	cmd.Flags().StringVarP(flags.includeFlag, "include", "i", ".*", "a regular expression to match files to include")
+	cmd.Flags().StringVarP(flags.excludeFlag, "exclude", "x", "", "a regular expression to match files to exclude")
+	cmd.Flags().StringSliceVarP(flags.pathsFlag, "paths", "p", []string{"."}, "a list of paths to search for files")
+	cmd.Flags().BoolVarP(flags.excludeFromGitignoreFlag,
+		"exclude-from-gitignore", "e", true, "exclude files from .gitignore")
+	cmd.Flags().BoolVarP(flags.excludeGitDirFlag, "exclude-git-dir", "g", true, "exclude the .git directory")
+
+	cmd.Flag("include").
+		Usage = "Specify a regex pattern to include files. " +
+		"For example, to include only Markdown files, use --include '\\.md$'"
+	cmd.Flag("exclude").
+		Usage = "Specify a regex pattern to exclude files. For example, to exclude test files, use --exclude '_test\\\\.go$'"
+	cmd.Flag("paths").
+		Usage = "Specify a list of paths to search for files. For example, " +
+		"to search in the 'cmd' and 'pkg' directories, use --paths cmd,pkg"
+	cmd.Flag("exclude-from-gitignore").
+		Usage = "Exclude files from .gitignore. If set to false, files mentioned in .gitignore will not be excluded"
+	cmd.Flag("exclude-git-dir").
+		Usage = "Exclude the .git directory. If set to false, the .git directory will not be excluded"
+}
+
+func isPiped(file *os.File) bool {
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return false
+	}
+
+	return (fileInfo.Mode() & os.ModeCharDevice) == 0
+}
+
+func interactiveChat(c *cobra.Command, args []string, gatherOpts *chatOptions, loginCmd *cobra.Command) error {
 	cfg, err := config.NewFromConfigFile()
 	if err != nil {
-		return err
+		var validationErr errors.ConfigValidationError
+		if !stderrors.As(err, &validationErr) {
+			return fmt.Errorf("error reading config: %w", err)
+		}
+
+		for _, e := range validationErr.Errors {
+			ui.PrintMessage(fmt.Sprintf("error: %s\n", e), ui.MessageTypeError)
+		}
+
+		// prompt the user to sign in to refresh the config
+		if !ui.AskYesNo("do you want to login now?", true) {
+			ui.PrintMessage("see ya later!", ui.MessageTypeInfo)
+			return nil
+		}
+
+		// login
+		err = loginCmd.RunE(c, args)
+		if err != nil {
+			return fmt.Errorf("error logging in: %w", err)
+		}
 	}
 
 	client := openai.NewClientWithConfig(cfg)
-	files, rootNode, err := gatherContext()
 
+	files, rootNode, err := gatherContext(gatherOpts)
 	if err != nil {
 		return err
 	}
 
 	if len(files) == 0 {
 		ui.PrintMessage("No files found matching the given criteria.\n", ui.MessageTypeWarning)
+
 		if !ui.AskYesNo("Do you wish to proceed?", false) {
 			ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
 			return nil
 		}
+
 		return nil
 	}
 
 	fileTree := filetree.GenerateFileTree(rootNode, "", true)
+	// confirm with the user that the files are correct
 	ui.PrintMessage("The following files will be used as context:\n", ui.MessageTypeInfo)
 	ui.PrintMessage(fileTree, ui.MessageTypeInfo)
 
 	// warn the user of files larger than 100kb
 	for _, file := range files {
-		if len(file.Data) > 100000 {
-			ui.PrintMessage(fmt.Sprintf("warning: %s is very large (%d bytes) and will degrade performance.\n", file.Path, len(file.Data)), ui.MessageTypeWarning)
+		if len(file.Data) > warnFileSizeThreshold {
+			largeFileMsg := fmt.Sprintf(
+				"warning: %s is very large (%d bytes) and will degrade performance.\n",
+				file.Path, len(file.Data))
+
+			ui.PrintMessage(largeFileMsg, ui.MessageTypeWarning)
 		}
 	}
 
@@ -147,10 +211,10 @@ func interactiveChat(c *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// TODO: refactor context and system message to use templates from config
 	contextStr := "File tree:\n\n"
 	contextStr += "```\n" + fileTree + "```\n\n"
 	contextStr += "File contents:\n\n"
+
 	for _, file := range files {
 		// find extension by splitting on ".". if no extension, use
 		contextStr += fmt.Sprintf("./%s\n```%s\n%s\n```\n\n", file.Path, file.Type, file.Data)
@@ -160,7 +224,7 @@ func interactiveChat(c *cobra.Command, args []string) error {
 
 	ui.PrintMessage("Type '/exit' to end the chat.\n", ui.MessageTypeNotice)
 
-	initialUserMessage := ""
+	var initialUserMessage string
 	if len(args) > 0 {
 		initialUserMessage = args[0]
 		ui.PrintMessage(fmt.Sprintf("👤: %s\n", initialUserMessage), ui.MessageTypeInfo)
@@ -179,10 +243,13 @@ func interactiveChat(c *cobra.Command, args []string) error {
 	for {
 		conversation.WaitMyTurn()
 		ui.PrintMessage("👤: ", ui.MessageTypeInfo)
+
 		userMessage := ui.ReadUserInput()
+
 		if userMessage == "/exit" {
 			break
 		}
+
 		conversation.Reply(userMessage)
 	}
 
@@ -206,10 +273,16 @@ func printMessageChunk(chunk *chat.ConversationChunk) {
 	ui.PrintMessage(chunk.Content, ui.MessageTypeInfo)
 }
 
-func nonInteractive(client *openai.Client, systemMessage string, prompt string) error {
+func nonInteractive(systemMessage string, prompt string) error {
+	cfg, err := config.NewFromConfigFile()
+	if err != nil {
+		return fmt.Errorf("error reading config: %w", err)
+	}
+
+	client := openai.NewClientWithConfig(cfg)
 
 	onChunk := func(chunk *chat.ConversationChunk) {
-		fmt.Print(chunk.Content)
+		ui.PrintMessage(chunk.Content, ui.MessageTypeInfo)
 	}
 	chatInstance := chat.NewChat(client, systemMessage, onChunk)
 	conversation := chatInstance.BeginConversation(prompt)
@@ -221,50 +294,63 @@ func nonInteractive(client *openai.Client, systemMessage string, prompt string) 
 
 func createSystemMessageFromContext(context string) string {
 	var systemMessage strings.Builder
-	systemMessage.WriteString("You are a helpful coding assistant. Below you will find relevant context to answer the user's question.\n\n")
+
+	systemMessage.WriteString("You are a helpful coding assistant. ")
+	systemMessage.WriteString("Below you will find relevant context to answer the user's question.\n\n")
 	systemMessage.WriteString("Context:\n")
 	systemMessage.WriteString(context)
 	systemMessage.WriteString("\n\n")
 	systemMessage.WriteString("Please follow the users instructions, you can do this!")
+
 	return systemMessage.String()
 }
 
-func gatherContext() ([]filetree.File, *filetree.FileNode, error) {
+type chatOptions struct {
+	includeFlag              string
+	excludeFlag              string
+	pathsFlag                []string
+	excludeFromGitignoreFlag bool
+	excludeGitDirFlag        bool
+}
+
+func gatherContext(opts *chatOptions) ([]filetree.File, *filetree.FileNode, error) {
+	includeFlag := opts.includeFlag
+	excludeFlag := opts.excludeFlag
+	pathsFlag := opts.pathsFlag
+	excludeFromGitignoreFlag := opts.excludeFromGitignoreFlag
+	excludeGitDirFlag := opts.excludeGitDirFlag
+
 	var excludeMatchers []pathmatcher.PathMatcher
 
 	// add exclude flag to excludeMatchers
 	if excludeFlag != "" {
 		excludeMatcher, err := pathmatcher.NewRegexPathMatcher(excludeFlag)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("error creating exclude matcher: %w", err)
 		}
+
 		excludeMatchers = append(excludeMatchers, excludeMatcher)
 	}
 
 	if excludeFromGitignoreFlag {
 		gitignoreMatcher, err := pathmatcher.NewGitignorePathMatcher()
-
 		if err != nil {
 			if errors.IsGitNotInstalledError(err) {
 				ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", ui.MessageTypeWarning)
 			} else {
-				return nil, nil, err
-			}
-		} else {
-			if !gitignoreMatcher.Any() {
-				ui.PrintMessage("no files ignored by git\n", ui.MessageTypeNotice)
-			} else {
-				excludeMatchers = append(excludeMatchers, gitignoreMatcher)
+				return nil, nil, fmt.Errorf("error creating gitignore matcher: %w", err)
 			}
 		}
+
+		excludeMatchers = append(excludeMatchers, gitignoreMatcher)
 	}
 
 	if excludeGitDirFlag {
-		// TODO: fix this so that .github is not excluded
-		gitDirMatcher, err := pathmatcher.NewRegexPathMatcher(`^.*\.git`)
+		gitDirMatcher, err := pathmatcher.NewRegexPathMatcher(`^.*\.git$`)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("error creating git directory matcher: %w", err)
 		}
+
 		excludeMatchers = append(excludeMatchers, gitDirMatcher)
 	}
 
@@ -273,33 +359,17 @@ func gatherContext() ([]filetree.File, *filetree.FileNode, error) {
 	// includeMatcher
 	includeMatcher, err := pathmatcher.NewRegexPathMatcher(includeFlag)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error creating include matcher: %w", err)
 	}
 
-	files, rootNode, err := filetree.GatherFiles(includeMatcher, excludeMatcher, pathsFlag)
-
+	files, rootNode, err := filetree.GatherFiles(&filetree.FileGatherOptions{
+		IncludeMatcher: includeMatcher,
+		ExcludeMatcher: excludeMatcher,
+		PathScopes:     pathsFlag,
+	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error gathering files: %w", err)
 	}
 
 	return files, rootNode, nil
-}
-
-func init() {
-
-	CwcCmd.Flags().StringVarP(&includeFlag, "include", "i", ".*", "a regular expression to match files to include")
-	CwcCmd.Flags().StringVarP(&excludeFlag, "exclude", "x", "", "a regular expression to match files to exclude")
-	CwcCmd.Flags().StringSliceVarP(&pathsFlag, "paths", "p", []string{"."}, "a list of paths to search for files")
-	CwcCmd.Flags().BoolVarP(&excludeFromGitignoreFlag, "exclude-from-gitignore", "e", true, "exclude files from .gitignore")
-	CwcCmd.Flags().BoolVarP(&excludeGitDirFlag, "exclude-git-dir", "g", true, "exclude the .git directory")
-
-	CwcCmd.Flag("include").Usage = "Specify a regex pattern to include files. For example, to include only Markdown files, use --include '\\.md$'"
-	CwcCmd.Flag("exclude").Usage = "Specify a regex pattern to exclude files. For example, to exclude test files, use --exclude '_test\\\\.go$'"
-	CwcCmd.Flag("paths").Usage = "Specify a list of paths to search for files. For example, to search in the 'cmd' and 'pkg' directories, use --paths cmd,pkg"
-	CwcCmd.Flag("exclude-from-gitignore").Usage = "Exclude files from .gitignore. If set to false, files mentioned in .gitignore will not be excluded"
-	CwcCmd.Flag("exclude-git-dir").Usage = "Exclude the .git directory. If set to false, the .git directory will not be excluded"
-
-	// Add the login command to the root command so that it is available to the CLI
-	CwcCmd.AddCommand(loginCmd)
-	CwcCmd.AddCommand(logoutCmd)
 }

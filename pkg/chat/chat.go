@@ -3,10 +3,12 @@ package chat
 import (
 	"context"
 	stderrors "errors"
-	"github.com/sashabaranov/go-openai"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
+
+	"github.com/sashabaranov/go-openai"
 )
 
 type Chat struct {
@@ -39,6 +41,7 @@ func (c *Chat) BeginConversation(initialMessage string) *Conversation {
 	}
 
 	conversation.Reply(initialMessage)
+
 	return conversation
 }
 
@@ -74,7 +77,9 @@ func (c *Conversation) WaitMyTurn() {
 
 func (c *Conversation) Reply(message string) {
 	c.wg.Add(1)
+
 	c.addMessage(openai.ChatMessageRoleUser, message)
+
 	go func() {
 		err := c.processMessages(context.Background())
 		if err != nil {
@@ -86,22 +91,21 @@ func (c *Conversation) Reply(message string) {
 				IsErrorChunk:   true,
 			})
 		}
+
 		c.wg.Done()
 	}()
 }
 
 func (c *Conversation) processMessages(ctx context.Context) error {
-
 	req := openai.ChatCompletionRequest{
-		Model: openai.GPT4TurboPreview,
-		//MaxTokens: 4096,
+		Model:    openai.GPT4TurboPreview,
 		Messages: c.messages,
 		Stream:   true,
 	}
 
 	stream, err := c.client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating chat completion stream: %w", err)
 	}
 
 	defer stream.Close()
@@ -113,6 +117,7 @@ func (c *Conversation) processMessages(ctx context.Context) error {
 		Content:        "",
 		IsInitialChunk: true,
 		IsFinalChunk:   false,
+		IsErrorChunk:   false,
 	})
 
 answer:
@@ -124,12 +129,14 @@ answer:
 				Content:        "",
 				IsInitialChunk: false,
 				IsFinalChunk:   true,
+				IsErrorChunk:   false,
 			})
+
 			break answer
 		}
 
 		if err != nil {
-			return err
+			return fmt.Errorf("error receiving chat completion response: %w", err)
 		}
 
 		if len(response.Choices) == 0 {
@@ -143,6 +150,7 @@ answer:
 			Content:        response.Choices[0].Delta.Content,
 			IsInitialChunk: false,
 			IsFinalChunk:   false,
+			IsErrorChunk:   false,
 		})
 	}
 

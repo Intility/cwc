@@ -3,11 +3,12 @@ package pathmatcher
 import (
 	"bytes"
 	"fmt"
-	"github.com/emilkje/cwc/pkg/errors"
 	"os"
 	"os/exec"
 	"slices"
 	"strings"
+
+	"github.com/emilkje/cwc/pkg/errors"
 )
 
 type GitignorePathMatcher struct {
@@ -20,6 +21,7 @@ func NewGitignorePathMatcher() (*GitignorePathMatcher, error) {
 	}
 
 	err := matcher.gitLsFiles()
+
 	return matcher, err
 }
 
@@ -37,6 +39,7 @@ func (g *GitignorePathMatcher) gitLsFiles() error {
 	cmd := exec.Command("git", "ls-files", "-o", "--ignored", "--exclude-standard")
 	cmd.Stdout = buf
 	cmd.Stderr = os.Stderr
+
 	err := cmd.Run()
 	if err != nil {
 		if strings.Contains(err.Error(), "executable file not found in") {

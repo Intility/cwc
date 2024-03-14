@@ -1,24 +1,25 @@
 package pathmatcher
 
-type compoundPathMatcher struct {
+type CompoundPathMatcher struct {
 	matchers []PathMatcher
 }
 
-func NewCompoundPathMatcher(matchers ...PathMatcher) PathMatcher {
-	return &compoundPathMatcher{
+func NewCompoundPathMatcher(matchers ...PathMatcher) *CompoundPathMatcher {
+	return &CompoundPathMatcher{
 		matchers: matchers,
 	}
 }
 
-func (c *compoundPathMatcher) Match(path string) bool {
+func (c *CompoundPathMatcher) Match(path string) bool {
 	for _, matcher := range c.matchers {
 		if matcher.Match(path) {
 			return true
 		}
 	}
+
 	return false
 }
 
-func (c *compoundPathMatcher) Add(matcher PathMatcher) {
+func (c *CompoundPathMatcher) Add(matcher PathMatcher) {
 	c.matchers = append(c.matchers, matcher)
 }

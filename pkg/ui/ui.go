@@ -18,7 +18,7 @@ const (
 	MessageTypeSuccess
 )
 
-// Define ANSI color codes
+// Define ANSI color codes.
 const (
 	colorReset  = "\033[0m"
 	colorRed    = "\033[31m"
@@ -27,15 +27,6 @@ const (
 	colorGreen  = "\033[32m"
 )
 
-// messageColors maps MessageType values to their corresponding color codes.
-var messageColors = map[MessageType]string{
-	MessageTypeInfo:    colorReset,
-	MessageTypeWarning: colorYellow,
-	MessageTypeError:   colorRed,
-	MessageTypeNotice:  colorCyan,
-	MessageTypeSuccess: colorGreen,
-}
-
 func AskYesNo(prompt string, defaultYes bool) bool {
 	// default answer should add the correct uppercase to the (Y/n) prompt
 	if defaultYes {
@@ -43,14 +34,20 @@ func AskYesNo(prompt string, defaultYes bool) bool {
 	} else {
 		prompt += " (y/N)"
 	}
-	fmt.Println(prompt)
+
+	fmt.Println(prompt) //nolint:forbidigo
+
 	proceed := ""
+
 	_, _ = fmt.Scanln(&proceed) // ignore errors as we only care about the user input
 	yesStrings := []string{"Y", "YES", "YEAH", "YEP", "YEA", "YEAH", "YUP"}
+
 	if defaultYes {
 		yesStrings = append(yesStrings, "")
 	}
+
 	isYes := slices.Contains(yesStrings, strings.TrimSpace(strings.ToUpper(proceed)))
+
 	return isYes
 }
 
@@ -58,18 +55,31 @@ func AskYesNo(prompt string, defaultYes bool) bool {
 func ReadUserInput() string {
 	reader := bufio.NewReader(os.Stdin)
 	userInput, _ := reader.ReadString('\n')
+
 	return strings.TrimSpace(userInput)
 }
 
 // PrintMessage prints a message to the user.
 func PrintMessage(message string, messageType MessageType) {
+	if messageType == MessageTypeInfo {
+		fmt.Print(message) //nolint:forbidigo
+		return
+	}
+
+	messageColors := map[MessageType]string{
+		MessageTypeWarning: colorYellow,
+		MessageTypeError:   colorRed,
+		MessageTypeNotice:  colorCyan,
+		MessageTypeSuccess: colorGreen,
+	}
+
 	color, ok := messageColors[messageType]
 	if !ok {
 		// If the messageType is not found in the map, use a default color or no color.
-		fmt.Print(message)
+		fmt.Print(message) //nolint:forbidigo
 		return
 	}
 
 	// Print the message with color.
-	fmt.Printf("%s%s%s", color, message, colorReset)
+	fmt.Printf("%s%s%s", color, message, colorReset) //nolint:forbidigo
 }

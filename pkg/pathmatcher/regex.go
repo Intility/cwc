@@ -1,19 +1,23 @@
 package pathmatcher
 
-import "regexp"
+import (
+	"fmt"
+	"regexp"
+)
 
-type regexPathMatcher struct {
+type RegexPathMatcher struct {
 	re *regexp.Regexp
 }
 
-func NewRegexPathMatcher(pattern string) (PathMatcher, error) {
+func NewRegexPathMatcher(pattern string) (*RegexPathMatcher, error) {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error compiling regex pattern: %w", err)
 	}
-	return &regexPathMatcher{re: re}, nil
+
+	return &RegexPathMatcher{re: re}, nil
 }
 
-func (r *regexPathMatcher) Match(path string) bool {
+func (r *RegexPathMatcher) Match(path string) bool {
 	return r.re.MatchString(path)
 }

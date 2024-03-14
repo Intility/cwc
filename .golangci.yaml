@@ -1,0 +1,125 @@
+linters:
+  disable-all: true
+  enable:
+    - depguard
+    - revive
+    - stylecheck
+    - gosec
+    - goconst
+    - gocyclo
+    - gci
+    - unparam
+    - govet
+  presets:
+    - bugs
+    - comment
+    - complexity
+    - error
+    - format
+    - import
+#    - metalinter #slow
+    - module
+    - performance
+#    - sql
+    - style
+    - test
+    - unused
+linters-settings:
+  revive:
+    ignore-generated-header: true
+    enable-all-rules: false
+    # Specifying any rule explicitly will disable the default-enabled rules.
+    # Manually specify the defaults along with `context-as-argument`.
+    rules:
+    # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md
+      - name: argument-limit
+        arguments: [4]
+      - name: bare-return
+        disabled: false
+      - name: blank-imports
+        disabled: false
+      - name: error-naming
+        disabled: false
+      - name: error-return
+        disabled: false
+      - name: error-strings
+        disabled: false
+      - name: exported
+        disabled: false
+      - name: increment-decrement
+        disabled: false
+      - name: indent-error-flow
+        disabled: false
+      - name: receiver-naming
+        disabled: false
+      - name: range
+        disabled: false
+      - name: var-naming
+        disabled: false
+  stylecheck:
+    checks: ["all"]
+  gci:
+    custom-order: true
+    sections:
+      - standard
+      - default
+      - prefix(github.com/emilkje/cwc)
+  depguard:
+    rules:
+      prevent_unmaintained_packages:
+        list-mode: lax
+        deny:
+          - pkg: io/ioutil
+            desc: "replaced by io and os packages since Go 1.16"
+  nlreturn:
+    block-size: 2
+  forbidigo:
+    forbid:
+      - p: ^fmt\.Print.*$
+        msg: "use ui.PrintMessage"
+
+  varnamelen:
+    ignore-decls:
+      - w http.ResponseWriter
+      - r *http.Request
+      - r chi.Router
+  exhaustruct:
+    # List of regular expressions to exclude struct packages and their names from checks.
+    # Regular expressions must match complete canonical struct package/name/structname.
+    # These packages typically contains no suitable constructors, but needs to be used with zero values.
+    # Default: []
+    exclude:
+      # std libs
+      - "^net/http.Client$"
+      - "^net/http.Cookie$"
+      - "^net/http.Request$"
+      - "^net/http.Response$"
+      - "^net/http.Server$"
+      - "^net/http.Transport$"
+      # 3rd party
+      - ".+/cobra.Command$"
+      - ".+openai.ChatCompletionRequest"
+      - ".+openai.ChatCompletionMessage"
+run:
+  tests: false # skip test files
+  skip-dirs:
+    - bin
+    - vendor
+    - domain/house/mocks
+    - .codecov.yml
+    - .coveralls.yml
+    - .git
+    - .gitattributes
+    - .github
+    - .gitignore
+    - .gitlab
+    - .gitmodules
+    - .golangci
+    - .golangci.yaml
+    - .goreleaser
+    - .goreleaser.d
+    - .goreleaser.yml
+    - .idea
+    - .mockery.yaml
+    - .travis.yml
+    - .vscode

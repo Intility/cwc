@@ -29,17 +29,24 @@ type ConfigValidationError struct {
 }
 
 func (e ConfigValidationError) Error() string {
-	return fmt.Sprintf("config validation failed: %s", strings.Join(e.Errors, ", "))
+	return "config validation failed: " + strings.Join(e.Errors, ", ")
 }
 
-// AsConfigValidationError attempts to convert an error to a *ConfigValidationError and returns it with a boolean indicating success.
+// AsConfigValidationError attempts to convert an error to a
+// *ConfigValidationError and returns it with a boolean indicating success.
 func AsConfigValidationError(err error) (*ConfigValidationError, bool) {
 	var validationErr *ConfigValidationError
 	if err != nil {
 		ok := errors.As(err, &validationErr)
 		return validationErr, ok
 	}
+
 	return nil, false
+}
+
+func IsConfigValidationError(err error) bool {
+	var validationErr ConfigValidationError
+	return errors.As(err, &validationErr)
 }
 
 // FileNotExistError is an error type for when a file does not exist.
@@ -67,4 +74,12 @@ func (e GitNotInstalledError) Error() string {
 func IsGitNotInstalledError(err error) bool {
 	var gitNotInstalledError GitNotInstalledError
 	return errors.As(err, &gitNotInstalledError)
+}
+
+type NoPromptProvidedError struct {
+	Message string
+}
+
+func (e NoPromptProvidedError) Error() string {
+	return e.Message
 }
