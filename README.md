@@ -1,4 +1,4 @@
-# Chat With Code
+# **C**hat **W**ith **C**ode
 
 <div align="center">
   <a href="https://github.com/emilkje/go-openai-toolkit">
