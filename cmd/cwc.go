@@ -137,17 +137,6 @@ func isPiped(file *os.File) bool {
 	return (fileInfo.Mode() & os.ModeCharDevice) == 0
 }
 
-func doLogin() error {
-	loginCmd := createLoginCmd()
-
-	err := loginCmd.RunE(loginCmd, []string{})
-	if err != nil {
-		return fmt.Errorf("error logging in: %w", err)
-	}
-
-	return nil
-}
-
 func interactiveChat(prompt string, gatherOpts *chatOptions) error {
 	// Load configuration
 	cfg, err := loadConfiguration()
@@ -155,7 +144,7 @@ func interactiveChat(prompt string, gatherOpts *chatOptions) error {
 		return err
 	}
 
-	client := openai.NewClientWithConfig(*cfg)
+	client := openai.NewClientWithConfig(cfg)
 
 	// Gather context from files
 	files, fileTree, err := gatherAndPrintContext(gatherOpts)
@@ -202,15 +191,9 @@ func interactiveChat(prompt string, gatherOpts *chatOptions) error {
 }
 
 // loadConfiguration attempts to load the configuration and suggests login if needed.
-func loadConfiguration() (*openai.ClientConfig, error) {
+func loadConfiguration() (openai.ClientConfig, error) {
 	cfg, err := config.NewFromConfigFile()
-	if err != nil {
-		if shouldContinue, err := promptLogin(err); !shouldContinue {
-			return nil, err
-		}
-	}
-
-	return &cfg, nil
+	return cfg, err
 }
 
 // gatherAndPrintContext gathers file context based on provided options and prints it out.
@@ -267,29 +250,16 @@ func createSystemMessage(fileTree string, files []filetree.File) string {
 	return createSystemMessageFromContext(contextStr)
 }
 
-func promptLogin(err error) (bool, error) {
+func printValidationErrors(err error) {
 	var validationErr errors.ConfigValidationError
 	if !stderrors.As(err, &validationErr) {
-		return false, fmt.Errorf("error reading config: %w", err)
+		ui.PrintMessage(fmt.Sprintf("error: %s\n", err), ui.MessageTypeError)
+		return
 	}
 
 	for _, e := range validationErr.Errors {
 		ui.PrintMessage(fmt.Sprintf("error: %s\n", e), ui.MessageTypeError)
 	}
-
-	// prompt the user to sign in to refresh the config
-	if !ui.AskYesNo("do you want to login now?", true) {
-		ui.PrintMessage("see ya later!", ui.MessageTypeInfo)
-		return false, nil
-	}
-
-	// login
-	err = doLogin()
-	if err != nil {
-		return false, fmt.Errorf("error logging in: %w", err)
-	}
-
-	return true, nil
 }
 
 func printMessageChunk(chunk *chat.ConversationChunk) {

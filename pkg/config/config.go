@@ -136,24 +136,36 @@ func LoadConfig() (*Config, error) {
 	// Read data from file or secure store
 	configDir, err := xdgConfigPath()
 	if err != nil {
-		return nil, err
+		return nil, errors.ConfigValidationError{Errors: []string{
+			err.Error(),
+			"please run `cwc login` to create a new config file.",
+		}}
 	}
 
 	data, err := os.ReadFile(filepath.Join(configDir, configFileName))
 	if err != nil {
-		return nil, fmt.Errorf("error reading config file: %w", err)
+		return nil, errors.ConfigValidationError{Errors: []string{
+			"config file does not exist",
+			"please run `cwc login` to create a new config file.",
+		}}
 	}
 
 	var cfg Config
 	err = json.Unmarshal(data, &cfg)
 
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling config data: %w", err)
+		return nil, errors.ConfigValidationError{Errors: []string{
+			"invalid config file format",
+			"please run `cwc login` to create a new config file.",
+		}}
 	}
 
 	apiKey, err := getAPIKeyFromKeyring()
 	if err != nil {
-		return nil, err
+		return nil, errors.ConfigValidationError{Errors: []string{
+			err.Error(),
+			"please run `cwc login` to create a new config file.",
+		}}
 	}
 
 	cfg.SetAPIKey(apiKey)

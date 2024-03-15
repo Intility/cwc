@@ -80,8 +80,10 @@ func (c *Conversation) Reply(message string) {
 
 	c.addMessage(openai.ChatMessageRoleUser, message)
 
+	ctx := context.Background()
+
 	go func() {
-		err := c.processMessages(context.Background())
+		err := c.processMessages(ctx)
 		if err != nil {
 			c.onChunk(&ConversationChunk{
 				Role:           openai.ChatMessageRoleAssistant,
