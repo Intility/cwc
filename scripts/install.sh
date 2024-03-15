@@ -26,9 +26,9 @@ URL="https://github.com/emilkje/cwc/releases/latest/download/cwc-$OS-$ARCH$EXT"
 
 # Download the correct binary
 if command -v wget > /dev/null; then
-    wget "$URL" -O "cwc-$OS-$ARCH$EXT"
+    wget "$URL" -O "cwc$EXT"
 elif command -v curl > /dev/null; then
-    curl -L "$URL" -o "cwc-$OS-$ARCH$EXT"
+    curl -L "$URL" -o "cwc$EXT"
 else
     echo "Error: Neither wget nor curl is installed."
     exit 1
@@ -36,7 +36,7 @@ fi
 
 # Make it executable (not necessary for Windows)
 if [ "$OS" != "windows" ]; then
-    chmod +x "cwc-$OS-$ARCH$EXT"
+    chmod +x "cwc$EXT"
 fi
 
 echo "Downloaded cwc for $OS-$ARCH"
