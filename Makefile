@@ -134,7 +134,7 @@ $(GOVULNCHECK): $(LOCALBIN)
 .PHONY: toolkit-tools-gen
 toolkit-tools-gen: $(TOOLKIT_TOOLS_GEN) ## Download toolkit-tools-gen locally if necessary.
 $(TOOLKIT_TOOLS_GEN): $(LOCALBIN)
-	$(call go-install-tool,$(TOOLKIT_TOOLS_GEN),github.com/emilkje/go-openai-toolkit/cmd/toolkit-tools-gen,$(TOOLKIT_TOOLS_GEN_VERSION))
+	$(call go-install-tool,$(TOOLKIT_TOOLS_GEN),github.com/intility/go-openai-toolkit/cmd/toolkit-tools-gen,$(TOOLKIT_TOOLS_GEN_VERSION))
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)

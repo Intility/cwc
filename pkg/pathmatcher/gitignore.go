@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/emilkje/cwc/pkg/errors"
+	"github.com/intility/cwc/pkg/errors"
 )
 
 type GitignorePathMatcher struct {

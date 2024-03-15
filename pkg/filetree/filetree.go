@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	pm "github.com/emilkje/cwc/pkg/pathmatcher"
-	"github.com/emilkje/cwc/pkg/ui"
+	pm "github.com/intility/cwc/pkg/pathmatcher"
+	"github.com/intility/cwc/pkg/ui"
 )
 
 type FileNode struct {

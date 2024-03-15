@@ -1,7 +1,7 @@
 # **C**hat **W**ith **C**ode
 
 <div align="center">
-  <a href="https://github.com/emilkje/go-openai-toolkit">
+  <a href="https://github.com/intility/cwc">
     <img src="docs/assets/yelling_at_code.webp" alt="Logo">
   </a>
 </div>
@@ -32,12 +32,12 @@ enhancing flexibility with other text editors not natively supporting Github Cop
 If you have Go installed (version 1.22 or higher), you can install Chat With Code using the following command:
 
 ```sh
-go install github.com/emilkje/cwc@latest
+go install github.com/intility/cwc@latest
 ```
 
 ### Pre-built Binaries
 
-We also provide pre-built binaries for Windows, macOS, and Linux. You can download them from the [releases page](https://github.com/emilkje/cwc/releases) on GitHub.
+We also provide pre-built binaries for Windows, macOS, and Linux. You can download them from the [releases page](https://github.com/intility/cwc/releases) on GitHub.
 
 ## Getting Started
 
@@ -95,9 +95,9 @@ cwc -x ".*.tsx" -p src
 ```
 
 ```sh
-# chat with a git diff
-git diff refA...refB > foo.diff
-cwc -i "foo.diff"
+# generate a commit message for current changes
+PROMPT="please write me a conventional commit for these changes"
+git diff HEAD | cwc $PROMPT | git commit -e --file -
 ```
 
 ## Roadmap 
@@ -107,13 +107,8 @@ cwc -i "foo.diff"
 - [ ] tests
 - [ ] support both azure and openai credentials
 - [x] `cwc login` command to set up credentials
-- [ ] Pull request gating
-- [ ] Automatic version bumping
-- [ ] Automatic release notes generation
-- [ ] chat using web ui with `cwc web`
-- [ ] indexing/search implementation for large codebases
-- [ ] tools for dynamic context awareness
-- [ ] tools for gathering external documentation
+- [ ] customizable tools
+- [ ] system message / prompt templates with `-t` flag
 
 ## Contributing
 
@@ -123,7 +118,7 @@ Please file an issue if you encounter any problems or have suggestions for impro
 
 Chat With Code is provided under the MIT License. For more details, see the [LICENSE](LICENSE) file.
 
-If you encounter any issues or have suggestions for improvement, please open an issue in the project's [issue tracker](https://github.com/emilkje/chat-with-code/issues).
+If you encounter any issues or have suggestions for improvement, please open an issue in the project's [issue tracker](https://github.com/intility/chat-with-code/issues).
 
 [banner-photo-url]: ./docs/assets/yelling_at_code.webp
 [screenshot-url]: ./docs/assets/screenshot.png

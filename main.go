@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/emilkje/cwc/cmd"
-	"github.com/emilkje/cwc/pkg/ui"
+	"github.com/intility/cwc/cmd"
+	"github.com/intility/cwc/pkg/ui"
 )
 
 //go:generate ./bin/lang-gen

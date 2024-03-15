@@ -1,4 +1,4 @@
-module github.com/emilkje/cwc
+module github.com/intility/cwc
 
 go 1.22
 

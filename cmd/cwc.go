@@ -7,15 +7,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/intility/cwc/pkg/chat"
+	"github.com/intility/cwc/pkg/config"
+	"github.com/intility/cwc/pkg/errors"
+	"github.com/intility/cwc/pkg/filetree"
+	"github.com/intility/cwc/pkg/pathmatcher"
+	"github.com/intility/cwc/pkg/ui"
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
-
-	"github.com/emilkje/cwc/pkg/chat"
-	"github.com/emilkje/cwc/pkg/config"
-	"github.com/emilkje/cwc/pkg/errors"
-	"github.com/emilkje/cwc/pkg/filetree"
-	"github.com/emilkje/cwc/pkg/pathmatcher"
-	"github.com/emilkje/cwc/pkg/ui"
 )
 
 const (

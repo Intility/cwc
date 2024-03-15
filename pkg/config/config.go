@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/intility/cwc/pkg/errors"
 	"github.com/sashabaranov/go-openai"
-
-	"github.com/emilkje/cwc/pkg/errors"
 )
 
 const (

@@ -3,9 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/intility/cwc/pkg/config"
 	"github.com/spf13/cobra"
-
-	"github.com/emilkje/cwc/pkg/config"
 )
 
 func createLogoutCmd() *cobra.Command {
