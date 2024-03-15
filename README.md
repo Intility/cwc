@@ -38,6 +38,11 @@ go install github.com/intility/cwc@latest
 ### Pre-built Binaries
 
 We also provide pre-built binaries for Windows, macOS, and Linux. You can download them from the [releases page](https://github.com/intility/cwc/releases) on GitHub.
+You can install the latest release with the following command using a bash shell (git bash or WSL on Windows):
+
+```sh
+bash <(curl -sSL https://raw.githubusercontent.com/intility/cwc/main/scripts/install.sh)
+```
 
 ## Getting Started
 
