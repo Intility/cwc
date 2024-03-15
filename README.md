@@ -42,6 +42,9 @@ You can install the latest release with the following command using a bash shell
 
 ```sh
 bash <(curl -sSL https://raw.githubusercontent.com/intility/cwc/main/scripts/install.sh)
+
+# move the binary to a directory in your PATH
+mv cwc /usr/local/bin
 ```
 
 ## Getting Started
