@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
@@ -139,9 +138,9 @@ func isPiped(file *os.File) bool {
 
 func interactiveChat(prompt string, gatherOpts *chatOptions) error {
 	// Load configuration
-	cfg, err := loadConfiguration()
+	cfg, err := config.NewFromConfigFile()
 	if err != nil {
-		return err
+		return fmt.Errorf("error reading config: %w", err)
 	}
 
 	client := openai.NewClientWithConfig(cfg)
@@ -188,12 +187,6 @@ func interactiveChat(prompt string, gatherOpts *chatOptions) error {
 	}
 
 	return nil
-}
-
-// loadConfiguration attempts to load the configuration and suggests login if needed.
-func loadConfiguration() (openai.ClientConfig, error) {
-	cfg, err := config.NewFromConfigFile()
-	return cfg, err
 }
 
 // gatherAndPrintContext gathers file context based on provided options and prints it out.
@@ -248,18 +241,6 @@ func createSystemMessage(fileTree string, files []filetree.File) string {
 	}
 
 	return createSystemMessageFromContext(contextStr)
-}
-
-func printValidationErrors(err error) {
-	var validationErr errors.ConfigValidationError
-	if !stderrors.As(err, &validationErr) {
-		ui.PrintMessage(fmt.Sprintf("error: %s\n", err), ui.MessageTypeError)
-		return
-	}
-
-	for _, e := range validationErr.Errors {
-		ui.PrintMessage(fmt.Sprintf("error: %s\n", e), ui.MessageTypeError)
-	}
 }
 
 func printMessageChunk(chunk *chat.ConversationChunk) {

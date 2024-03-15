@@ -114,7 +114,6 @@ git diff HEAD | cwc $PROMPT | git commit -e --file -
 
 - [ ] tests
 - [ ] support both azure and openai credentials
-- [x] `cwc login` command to set up credentials
 - [ ] customizable tools
 - [ ] system message / prompt templates with `-t` flag
 
