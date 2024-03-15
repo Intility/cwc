@@ -64,20 +64,7 @@ func CreateRootCommand() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if isPiped(os.Stdin) {
-				// stdin is not a terminal, typically piped from another command
-				if len(args) == 0 {
-					return &errors.NoPromptProvidedError{Message: "no prompt provided"}
-				}
-
-				var systemContext string
-
-				inputBytes, err := io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("error reading from stdin: %w", err)
-				}
-				systemContext = string(inputBytes)
-
-				return nonInteractive(systemContext, args[0])
+				return nonInteractive(args)
 			}
 
 			gatherOpts := &chatOptions{
@@ -88,7 +75,12 @@ func CreateRootCommand() *cobra.Command {
 				excludeGitDirFlag:        excludeGitDirFlag,
 			}
 
-			return interactiveChat(cmd, args, gatherOpts, loginCmd)
+			var prompt string
+			if len(args) > 0 {
+				prompt = args[0]
+			}
+
+			return interactiveChat(prompt, gatherOpts)
 		},
 	}
 
@@ -145,99 +137,53 @@ func isPiped(file *os.File) bool {
 	return (fileInfo.Mode() & os.ModeCharDevice) == 0
 }
 
-func interactiveChat(c *cobra.Command, args []string, gatherOpts *chatOptions, loginCmd *cobra.Command) error {
-	cfg, err := config.NewFromConfigFile()
+func doLogin() error {
+	loginCmd := createLoginCmd()
+
+	err := loginCmd.RunE(loginCmd, []string{})
 	if err != nil {
-		var validationErr errors.ConfigValidationError
-		if !stderrors.As(err, &validationErr) {
-			return fmt.Errorf("error reading config: %w", err)
-		}
-
-		for _, e := range validationErr.Errors {
-			ui.PrintMessage(fmt.Sprintf("error: %s\n", e), ui.MessageTypeError)
-		}
-
-		// prompt the user to sign in to refresh the config
-		if !ui.AskYesNo("do you want to login now?", true) {
-			ui.PrintMessage("see ya later!", ui.MessageTypeInfo)
-			return nil
-		}
-
-		// login
-		err = loginCmd.RunE(c, args)
-		if err != nil {
-			return fmt.Errorf("error logging in: %w", err)
-		}
+		return fmt.Errorf("error logging in: %w", err)
 	}
 
-	client := openai.NewClientWithConfig(cfg)
+	return nil
+}
 
-	files, rootNode, err := gatherContext(gatherOpts)
+func interactiveChat(prompt string, gatherOpts *chatOptions) error {
+	// Load configuration
+	cfg, err := loadConfiguration()
 	if err != nil {
 		return err
 	}
 
-	if len(files) == 0 {
-		ui.PrintMessage("No files found matching the given criteria.\n", ui.MessageTypeWarning)
+	client := openai.NewClientWithConfig(*cfg)
 
-		if !ui.AskYesNo("Do you wish to proceed?", false) {
-			ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
+	// Gather context from files
+	files, fileTree, err := gatherAndPrintContext(gatherOpts)
+	if err != nil {
+		return err
+	} else if len(files) == 0 { // No files found, terminating or confirming to proceed
+		if !askConfirmation("No files found matching the given criteria.\n", ui.MessageTypeWarning) {
 			return nil
 		}
-
-		return nil
 	}
 
-	fileTree := filetree.GenerateFileTree(rootNode, "", true)
-	// confirm with the user that the files are correct
-	ui.PrintMessage("The following files will be used as context:\n", ui.MessageTypeInfo)
-	ui.PrintMessage(fileTree, ui.MessageTypeInfo)
-
-	// warn the user of files larger than 100kb
-	for _, file := range files {
-		if len(file.Data) > warnFileSizeThreshold {
-			largeFileMsg := fmt.Sprintf(
-				"warning: %s is very large (%d bytes) and will degrade performance.\n",
-				file.Path, len(file.Data))
-
-			ui.PrintMessage(largeFileMsg, ui.MessageTypeWarning)
-		}
-	}
-
-	// confirm with the user that the files are correct
-	if !ui.AskYesNo("Do you wish to proceed?", true) {
-		ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
-		return nil
-	}
-
-	contextStr := "File tree:\n\n"
-	contextStr += "```\n" + fileTree + "```\n\n"
-	contextStr += "File contents:\n\n"
-
-	for _, file := range files {
-		// find extension by splitting on ".". if no extension, use
-		contextStr += fmt.Sprintf("./%s\n```%s\n%s\n```\n\n", file.Path, file.Type, file.Data)
-	}
-
-	systemMessage := createSystemMessageFromContext(contextStr)
+	systemMessage := createSystemMessage(fileTree, files)
 
 	ui.PrintMessage("Type '/exit' to end the chat.\n", ui.MessageTypeNotice)
 
-	var initialUserMessage string
-	if len(args) > 0 {
-		initialUserMessage = args[0]
-		ui.PrintMessage(fmt.Sprintf("👤: %s\n", initialUserMessage), ui.MessageTypeInfo)
-	} else {
+	if prompt == "" {
 		ui.PrintMessage("👤: ", ui.MessageTypeInfo)
-		initialUserMessage = ui.ReadUserInput()
+		prompt = ui.ReadUserInput()
+	} else {
+		ui.PrintMessage(fmt.Sprintf("👤: %s\n", prompt), ui.MessageTypeInfo)
 	}
 
-	if initialUserMessage == "/exit" {
+	if prompt == "/exit" {
 		return nil
 	}
 
 	chatInstance := chat.NewChat(client, systemMessage, printMessageChunk)
-	conversation := chatInstance.BeginConversation(initialUserMessage)
+	conversation := chatInstance.BeginConversation(prompt)
 
 	for {
 		conversation.WaitMyTurn()
@@ -253,6 +199,97 @@ func interactiveChat(c *cobra.Command, args []string, gatherOpts *chatOptions, l
 	}
 
 	return nil
+}
+
+// loadConfiguration attempts to load the configuration and suggests login if needed.
+func loadConfiguration() (*openai.ClientConfig, error) {
+	cfg, err := config.NewFromConfigFile()
+	if err != nil {
+		if shouldContinue, err := promptLogin(err); !shouldContinue {
+			return nil, err
+		}
+	}
+
+	return &cfg, nil
+}
+
+// gatherAndPrintContext gathers file context based on provided options and prints it out.
+func gatherAndPrintContext(gatherOpts *chatOptions) ([]filetree.File, string, error) {
+	files, rootNode, err := gatherContext(gatherOpts)
+	if err != nil {
+		return nil, "", err
+	}
+
+	for _, file := range files {
+		printLargeFileWarning(file)
+	}
+
+	fileTree := filetree.GenerateFileTree(rootNode, "", true)
+
+	ui.PrintMessage("The following files will be used as context:\n", ui.MessageTypeInfo)
+	ui.PrintMessage(fileTree, ui.MessageTypeInfo)
+
+	return files, fileTree, nil
+}
+
+// askConfirmation prompts the user if they want to proceed with no files.
+func askConfirmation(prompt string, messageType ui.MessageType) bool {
+	ui.PrintMessage(prompt, messageType)
+
+	if !ui.AskYesNo("Do you wish to proceed?", false) {
+		ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
+		return false
+	}
+
+	return true
+}
+
+func printLargeFileWarning(file filetree.File) {
+	if len(file.Data) > warnFileSizeThreshold {
+		largeFileMsg := fmt.Sprintf(
+			"warning: %s is very large (%d bytes) and will degrade performance.\n",
+			file.Path, len(file.Data))
+
+		ui.PrintMessage(largeFileMsg, ui.MessageTypeWarning)
+	}
+}
+
+func createSystemMessage(fileTree string, files []filetree.File) string {
+	contextStr := "File tree:\n\n"
+	contextStr += "```\n" + fileTree + "```\n\n"
+	contextStr += "File contents:\n\n"
+
+	for _, file := range files {
+		// find extension by splitting on ".". if no extension, use
+		contextStr += fmt.Sprintf("./%s\n```%s\n%s\n```\n\n", file.Path, file.Type, file.Data)
+	}
+
+	return createSystemMessageFromContext(contextStr)
+}
+
+func promptLogin(err error) (bool, error) {
+	var validationErr errors.ConfigValidationError
+	if !stderrors.As(err, &validationErr) {
+		return false, fmt.Errorf("error reading config: %w", err)
+	}
+
+	for _, e := range validationErr.Errors {
+		ui.PrintMessage(fmt.Sprintf("error: %s\n", e), ui.MessageTypeError)
+	}
+
+	// prompt the user to sign in to refresh the config
+	if !ui.AskYesNo("do you want to login now?", true) {
+		ui.PrintMessage("see ya later!", ui.MessageTypeInfo)
+		return false, nil
+	}
+
+	// login
+	err = doLogin()
+	if err != nil {
+		return false, fmt.Errorf("error logging in: %w", err)
+	}
+
+	return true, nil
 }
 
 func printMessageChunk(chunk *chat.ConversationChunk) {
@@ -272,7 +309,20 @@ func printMessageChunk(chunk *chat.ConversationChunk) {
 	ui.PrintMessage(chunk.Content, ui.MessageTypeInfo)
 }
 
-func nonInteractive(systemMessage string, prompt string) error {
+func nonInteractive(args []string) error {
+	// stdin is not a terminal, typically piped from another command
+	if len(args) == 0 {
+		return &errors.NoPromptProvidedError{Message: "no prompt provided"}
+	}
+
+	inputBytes, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return fmt.Errorf("error reading from stdin: %w", err)
+	}
+
+	systemContext := string(inputBytes)
+	systemMessage := createSystemMessageFromContext(systemContext)
+
 	cfg, err := config.NewFromConfigFile()
 	if err != nil {
 		return fmt.Errorf("error reading config: %w", err)
@@ -284,7 +334,7 @@ func nonInteractive(systemMessage string, prompt string) error {
 		ui.PrintMessage(chunk.Content, ui.MessageTypeInfo)
 	}
 	chatInstance := chat.NewChat(client, systemMessage, onChunk)
-	conversation := chatInstance.BeginConversation(prompt)
+	conversation := chatInstance.BeginConversation(args[0])
 
 	conversation.WaitMyTurn()
 

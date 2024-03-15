@@ -110,6 +110,10 @@ func (c *Conversation) processMessages(ctx context.Context) error {
 
 	defer stream.Close()
 
+	return c.handleStream(stream)
+}
+
+func (c *Conversation) handleStream(stream *openai.ChatCompletionStream) error {
 	var reply strings.Builder
 
 	c.onChunk(&ConversationChunk{
