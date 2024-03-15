@@ -59,6 +59,9 @@ jobs:
           GOOS=${GOOSARCH%/*}
           GOARCH=${GOOSARCH#*/}
           BINARY_NAME=cwc-$GOOS-$GOARCH
+          if [ "$GOOS" = "windows" ]; then
+              BINARY_NAME="$BINARY_NAME".exe
+          fi
           go build -o "$BINARY_NAME" -v
           echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
           echo "GOOS=$GOOS" >> $GITHUB_ENV
