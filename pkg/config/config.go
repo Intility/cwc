@@ -193,3 +193,7 @@ func ClearConfig() error {
 
 	return nil
 }
+
+func GetConfigDir() (string, error) {
+	return xdgConfigPath()
+}

@@ -108,14 +108,112 @@ PROMPT="please write me a conventional commit for these changes"
 git diff HEAD | cwc $PROMPT | git commit -e --file -
 ```
 
+## Template Features
+
+### Overview
+
+Chat With Code (CWC) introduces the flexibility of custom templates to enhance the conversational coding experience. 
+Templates are pre-defined system messages and prompts that tailor interactions with your codebase. 
+A template envelops default prompts, system messages and variables, allowing for a personalized and context-aware dialogue.
+
+### Template Schema
+
+Each template follows a specific YAML schema defined in `templates.yaml`. 
+Here's an outline of the schema for a CWC template:
+
+```yaml
+templates:
+  - name: template_name
+    description: A brief description of the template's purpose
+    defaultPrompt: An optional default prompt to use if none is provided
+    systemMessage: |
+      The system message that details the instructions and context for the chat session.
+      This message supports placeholders for {{ .Context }} which is the gathered file context,
+      as well as custom variables `{{ .Variables.variableName }}` fed into the session with cli args.
+    variables:
+      - name: variableName
+        description: Description of the variable
+        defaultValue: Default value for the variable
+```
+
+### Placement
+
+Templates may be placed within the repository or under the user's configuration directory, adhering to the XDG Base Directory Specification:
+
+1. **In the Repository Directory**: To include the templates specifically for a repository, place a `templates.yaml` inside the `.cwc` directory at the root of your repository:
+
+   ```
+   .
+   ├── .cwc
+   │   └── templates.yaml
+   ...
+   ```
+
+2. **In the User XDG CWC Config Directory**: For global user templates, place the `templates.yaml` within the XDG configuration directory for CWC, which is typically `~/.config/cwc/` on Unix-like systems:
+
+   ```
+   $XDG_CONFIG_HOME/cwc/templates.yaml
+   ```
+
+   If `$XDG_CONFIG_HOME` is not set, it defaults to `~/.config`.
+
+### Example Usage
+
+You can specify a template using the `-t` flag and pass variables with the `-v` flag in the terminal. These flags allow you to customize the chat session based on the selected template and provided variables.
+
+#### Selecting a Template
+
+To begin a chat session using a specific template, use the `-t` flag followed by the template name:
+
+```sh
+cwc -t my_template
+```
+
+This command will start a conversation with the system message and default prompt defined in the template named `my_template`.
+
+#### Passing Variables to a Template
+
+You can pass variables to a template using the `-v` flag followed by a key-value pair:
+
+```sh
+cwc -t my_template -v personality="a helpful assistant",name="Juno"
+```
+
+Here, the `my_template` template is used. The `personality` variable is set to "a helpful coding assistant", and
+the `name` variable is set to "Juno". These variables will be fed into the template's system message where placeholders are specified.
+
+The template supporting these variables might look like this:
+
+```yaml
+name: my_template
+description: A custom template with modifiable personality and name
+systemMessage: |
+  You are {{ .Variables.personality }} named {{ .Variables.name }}. 
+  Using the following context you will be able to help the user.
+
+  Context:
+  {{ .Context }}
+   
+  Please keep in mind your personality when responding to the user.
+  If the user asks for your name, you should respond with {{ .Variables.name }}.
+variables:
+  - name: personality
+    description: The personality of the assistant. e.g. "a helpful assistant"
+    defaultValue: a helpful assistant
+  - name: name
+    description: The name of the assistant. e.g. "Juno"
+    defaultValue: Juno
+```
+
+> Notice that the `personality` and `name` variables have default values, which will be used if no value is provided in the `-v` flag.
+
 ## Roadmap 
 
-> Note: these items may or may not be implemented in the future.
+These items may or may not be implemented in the future.
 
 - [ ] tests
 - [ ] support both azure and openai credentials
 - [ ] customizable tools
-- [ ] system message / prompt templates with `-t` flag
 
 ## Contributing
 
