@@ -83,3 +83,11 @@ type NoPromptProvidedError struct {
 func (e NoPromptProvidedError) Error() string {
 	return e.Message
 }
+
+type TemplateNotFoundError struct {
+	TemplateName string
+}
+
+func (e TemplateNotFoundError) Error() string {
+	return "template not found: " + e.TemplateName
+}
