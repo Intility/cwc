@@ -22,7 +22,7 @@ if [ "$OS" = "windows" ]; then
     EXT=".exe"
 fi
 
-URL="https://github.com/emilkje/cwc/releases/latest/download/cwc-$OS-$ARCH$EXT"
+URL="https://github.com/intility/cwc/releases/latest/download/cwc-$OS-$ARCH$EXT"
 
 # Download the correct binary
 if command -v wget > /dev/null; then
