@@ -147,7 +147,8 @@ func initFlags(cmd *cobra.Command, flags *flags) {
 	cmd.Flag("exclude-git-dir").
 		Usage = "Exclude the .git directory. If set to false, the .git directory will not be excluded"
 	cmd.Flag("template").
-		Usage = "Specify the name of the template to use. For example, to use a template named 'tech_writer', use --template tech_writer"
+		Usage = "Specify the name of the template to use. For example, " +
+		"to use a template named 'tech_writer', use --template tech_writer"
 	cmd.Flag("template-variables").
 		Usage = "Specify variables to use in the template. For example, to use the variable 'name' " +
 		"with the value 'John', use --template-variables name=John"
