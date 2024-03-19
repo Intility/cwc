@@ -47,11 +47,6 @@ func GatherFiles(opts *FileGatherOptions) ([]File, *FileNode, error) { //nolint:
 				return err
 			}
 
-			// start by skipping the .git directory
-			if strings.HasPrefix(path, ".git/") {
-				return nil
-			}
-
 			normalizedPath := filepath.ToSlash(path)
 			if !includeMatcher.Match(normalizedPath) || info.IsDir() || excludeMatcher.Match(normalizedPath) {
 				return nil

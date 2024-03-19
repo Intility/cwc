@@ -499,7 +499,7 @@ func gatherContext(opts *chatOptions) ([]filetree.File, *filetree.FileNode, erro
 	}
 
 	if excludeGitDirFlag {
-		gitDirMatcher, err := pathmatcher.NewRegexPathMatcher(`^.*\.git$`)
+		gitDirMatcher, err := pathmatcher.NewRegexPathMatcher(`^\.git(/|\\)`)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error creating git directory matcher: %w", err)
 		}
