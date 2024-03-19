@@ -15,6 +15,7 @@ import (
 	"github.com/intility/cwc/pkg/filetree"
 	"github.com/intility/cwc/pkg/pathmatcher"
 	"github.com/intility/cwc/pkg/templates"
+	"github.com/intility/cwc/pkg/tools"
 	"github.com/intility/cwc/pkg/ui"
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
@@ -62,6 +63,7 @@ func CreateRootCommand() *cobra.Command {
 		excludeGitDirFlag        bool
 		templateFlag             string
 		templateVariablesFlag    map[string]string
+		toolsEnabledFlag         []string
 	)
 
 	loginCmd := createLoginCmd()
@@ -85,6 +87,7 @@ func CreateRootCommand() *cobra.Command {
 				excludeGitDirFlag:        excludeGitDirFlag,
 				templateFlag:             templateFlag,
 				templateVariablesFlag:    templateVariablesFlag,
+				toolsEnabledFlag:         toolsEnabledFlag,
 			}
 
 			var prompt string
@@ -104,6 +107,7 @@ func CreateRootCommand() *cobra.Command {
 		excludeGitDirFlag:        &excludeGitDirFlag,
 		templateFlag:             &templateFlag,
 		templateVariablesFlag:    &templateVariablesFlag,
+		toolsEnabledFlag:         &toolsEnabledFlag,
 	})
 
 	cmd.AddCommand(loginCmd)
@@ -121,6 +125,7 @@ type flags struct {
 	excludeGitDirFlag        *bool
 	templateFlag             *string
 	templateVariablesFlag    *map[string]string
+	toolsEnabledFlag         *[]string
 }
 
 func initFlags(cmd *cobra.Command, flags *flags) {
@@ -133,6 +138,7 @@ func initFlags(cmd *cobra.Command, flags *flags) {
 	cmd.Flags().StringVarP(flags.templateFlag, "template", "t", "default", "the name of the template to use")
 	cmd.Flags().StringToStringVarP(flags.templateVariablesFlag,
 		"template-variables", "v", nil, "variables to use in the template")
+	cmd.Flags().StringSliceVarP(flags.toolsEnabledFlag, "tools-enabled", "T", nil, "enable specific tools")
 
 	cmd.Flag("include").
 		Usage = "Specify a regex pattern to include files. " +
@@ -152,6 +158,8 @@ func initFlags(cmd *cobra.Command, flags *flags) {
 	cmd.Flag("template-variables").
 		Usage = "Specify variables to use in the template. For example, to use the variable 'name' " +
 		"with the value 'John', use --template-variables name=John"
+	cmd.Flag("tools-enabled").
+		Usage = "Enable specific tools. For example, to enable the 'search' tool, use --tools-enabled search"
 }
 
 func isPiped(file *os.File) bool {
@@ -189,6 +197,8 @@ func interactiveChat(prompt string, chatOpts *chatOptions) error {
 		return fmt.Errorf("error creating system message: %w", err)
 	}
 
+	printEnabledTools(chatOpts.toolsEnabledFlag)
+
 	ui.PrintMessage("Type '/exit' to end the chat.\n", ui.MessageTypeNotice)
 
 	if prompt == "" {
@@ -201,9 +211,17 @@ func interactiveChat(prompt string, chatOpts *chatOptions) error {
 		return nil
 	}
 
-	handleChat(client, systemMessage, prompt)
+	handleChat(client, systemMessage, prompt, chatOpts.toolsEnabledFlag)
 
 	return nil
+}
+
+func printEnabledTools(toolsEnabled []string) {
+	toolkit := tools.NewToolkit(toolsEnabled...)
+	for _, tool := range toolkit.ListTools() {
+		def := tool.Definition()
+		ui.PrintMessage(fmt.Sprintf("Enabled tool: %s: %s\n", def.Name, def.Description), ui.MessageTypeInfo)
+	}
 }
 
 func getPromptFromUserOrTemplate(templateName string) string {
@@ -234,8 +252,14 @@ func getPromptFromUserOrTemplate(templateName string) string {
 	return prompt
 }
 
-func handleChat(client *openai.Client, systemMessage string, prompt string) {
+func handleChat(client *openai.Client, systemMessage string, prompt string, toolsEnabled []string) {
 	chatInstance := chat.NewChat(client, systemMessage, printMessageChunk)
+
+	if len(toolsEnabled) > 0 {
+		toolkit := tools.NewToolkit(toolsEnabled...)
+		chatInstance.UseToolkit(toolkit)
+	}
+
 	conversation := chatInstance.BeginConversation(prompt)
 
 	for {
@@ -464,6 +488,7 @@ type chatOptions struct {
 	excludeGitDirFlag        bool
 	templateFlag             string
 	templateVariablesFlag    map[string]string
+	toolsEnabledFlag         []string
 }
 
 func gatherContext(opts *chatOptions) ([]filetree.File, *filetree.FileNode, error) {

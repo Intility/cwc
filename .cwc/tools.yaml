@@ -1,0 +1,27 @@
+tools:
+  - name: get_processes
+    description: Get a list of processes running on the system.
+    shell:
+      - ps aux
+
+  - name: diff
+    description: show the difference between two git refs
+    shell:
+      - git diff {{or .source "" }} {{ .target }}
+    parameters:
+      - name: source
+        type: string
+        description: The source ref to compare. E.g. 'main', 'HEAD~1', etc.
+      - name: target
+        type: string
+        description: The target ref to compare. E.g. 'main', 'HEAD~1', etc.
+    required: [target]
+
+  - name: get_docs
+    description: Get the documentation for a go package.
+    web:
+      - https://pkg.go.dev/{{ .package }}
+    parameters:
+      - name: package
+        type: string
+        description: The package to get documentation for. E.g. 'github.com/go-chi/chi/v5'

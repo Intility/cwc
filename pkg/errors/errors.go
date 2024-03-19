@@ -91,3 +91,17 @@ type TemplateNotFoundError struct {
 func (e TemplateNotFoundError) Error() string {
 	return "template not found: " + e.TemplateName
 }
+
+type InvalidToolSpecError struct {
+	Message string
+}
+
+func (e *InvalidToolSpecError) Error() string {
+	return e.Message
+}
+
+type NoToolCallsDetectedError struct{}
+
+func (e NoToolCallsDetectedError) Error() string {
+	return "no tool detected"
+}
