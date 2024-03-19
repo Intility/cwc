@@ -66,6 +66,14 @@ run: fmt vet check-env-vars ## Run the example app.
 generate: lang-gen ## Generate code.
 	go generate ./...
 
+.PHONY: cross-compile
+cross-compile: ## Cross compile the code.
+	GOOS=linux GOARCH=arm64 go build -o $(LOCALBIN)/cwc-linux-arm64 ./main.go
+	GOOS=linux GOARCH=amd64 go build -o $(LOCALBIN)/cwc-linux-amd64 ./main.go
+	GOOS=darwin GOARCH=arm64 go build -o $(LOCALBIN)/cwc-darwin-arm64 ./main.go
+	GOOS=darwin GOARCH=amd64 go build -o $(LOCALBIN)/cwc-darwin-amd64 ./main.go
+	GOOS=windows GOARCH=amd64 go build -o $(LOCALBIN)/cwc-windows-amd64.exe ./main.go
+
 ##@ Pre Deployment
 
 .PHONY: security-scan
