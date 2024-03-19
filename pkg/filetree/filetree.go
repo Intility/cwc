@@ -52,7 +52,8 @@ func GatherFiles(opts *FileGatherOptions) ([]File, *FileNode, error) { //nolint:
 				return nil
 			}
 
-			if !includeMatcher.Match(path) || info.IsDir() || excludeMatcher.Match(path) {
+			normalizedPath := filepath.ToSlash(path)
+			if !includeMatcher.Match(normalizedPath) || info.IsDir() || excludeMatcher.Match(normalizedPath) {
 				return nil
 			}
 
