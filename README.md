@@ -27,6 +27,15 @@ enhancing flexibility with other text editors not natively supporting Github Cop
 
 ## Installation
 
+### Using homebrew
+
+Intility provides a shared Homebrew tap with all our formulae. Install Chat With Code using:
+
+```sh
+brew tap intility/tap
+brew install cwc
+```
+
 ### Using Go
 
 If you have Go installed (version 1.22 or higher), you can install Chat With Code using the following command:
