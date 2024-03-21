@@ -101,15 +101,40 @@ cwc --help
 
 ## Example usage
 
+The simplest example would be to chat with a single file or output from a command. This use-case is easy using a pipe:
+
+```sh
+cat README.md | cwc "help me rewrite the getting started section"
+```
+
+If you have multiple files you want to include in the context you can provide a regular expression matching your criteria for inclusion using the `-i` flag:
+
 ```sh
 # chat across all .go files
 cwc -i ".*.go"
+
+# chat with README and test files
+cwc -i "README.md|.*_test.go"
 ```
+
+The include flag can also be combined with exclusion expressions, these work exactly the same as the inclusion patterns, but takes priority:
+
+```sh
+# chat with all .ts files, excluding a large .ts file
+cwc -i ".*.ts$" -x "large_file.ts"
+```
+
+In addition to include and exclude expressions you can also scope the search space to a particular directory. Multiple paths can be provided by a comma separated list or by providing multiple instances of the `-p` flag.
 
 ```sh
 # chat with everything inside src/ except .tsx files
 cwc -x ".*.tsx" -p src
+
+# chat with all yaml files in prod and lab
+cwc -i ".*.ya?ml" -p prod,lab
 ```
+
+The result output from cwc can also be piped to other commands as well. This example automates the creation of a conventional commit based on the current git diff.
 
 ```sh
 # generate a commit message for current changes
@@ -121,9 +146,7 @@ git diff HEAD | cwc $PROMPT | git commit -e --file -
 
 ### Overview
 
-Chat With Code (CWC) introduces the flexibility of custom templates to enhance the conversational coding experience. 
-Templates are pre-defined system messages and prompts that tailor interactions with your codebase. 
-A template envelops default prompts, system messages and variables, allowing for a personalized and context-aware dialogue.
+Chat With Code (CWC) introduces the flexibility of custom templates to enhance the conversational coding experience. Templates are pre-defined system messages and prompts that tailor interactions with your codebase. A template envelops default prompts, system messages and variables, allowing for easier access to common tasks.
 
 ### Template Schema
 
@@ -156,7 +179,6 @@ Templates may be placed within the repository or under the user's configuration 
    ├── .cwc
    │   └── templates.yaml
    ...
-   ```
 
 2. **In the User XDG CWC Config Directory**: For global user templates, place the `templates.yaml` within the XDG configuration directory for CWC, which is typically `~/.config/cwc/` on Unix-like systems:
 
