@@ -12,7 +12,6 @@ import (
 var (
 	apiKeyFlag          string //nolint:gochecknoglobals
 	endpointFlag        string //nolint:gochecknoglobals
-	apiVersionFlag      string //nolint:gochecknoglobals
 	modelDeploymentFlag string //nolint:gochecknoglobals
 )
 
@@ -35,17 +34,12 @@ func createLoginCmd() *cobra.Command {
 				endpointFlag = config.SanitizeInput(ui.ReadUserInput())
 			}
 
-			if apiVersionFlag == "" {
-				ui.PrintMessage("Enter the Azure OpenAI API Version: ", ui.MessageTypeInfo)
-				apiVersionFlag = config.SanitizeInput(ui.ReadUserInput())
-			}
-
 			if modelDeploymentFlag == "" {
 				ui.PrintMessage("Enter the Azure OpenAI Model Deployment: ", ui.MessageTypeInfo)
 				modelDeploymentFlag = config.SanitizeInput(ui.ReadUserInput())
 			}
 
-			cfg := config.NewConfig(endpointFlag, apiVersionFlag, modelDeploymentFlag)
+			cfg := config.NewConfig(endpointFlag, modelDeploymentFlag)
 			cfg.SetAPIKey(apiKeyFlag)
 
 			err := config.SaveConfig(cfg)
@@ -69,7 +63,6 @@ func createLoginCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&apiKeyFlag, "api-key", "k", "", "Azure OpenAI API Key")
 	cmd.Flags().StringVarP(&endpointFlag, "endpoint", "e", "", "Azure OpenAI API Endpoint")
-	cmd.Flags().StringVarP(&apiVersionFlag, "api-version", "v", "", "Azure OpenAI API Version")
 	cmd.Flags().StringVarP(&modelDeploymentFlag, "model-deployment", "m", "", "Azure OpenAI Model Deployment")
 
 	return cmd

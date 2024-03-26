@@ -91,3 +91,22 @@ type TemplateNotFoundError struct {
 func (e TemplateNotFoundError) Error() string {
 	return "template not found: " + e.TemplateName
 }
+
+func IsTemplateNotFoundError(err error) bool {
+	var templateNotFoundError TemplateNotFoundError
+	return errors.As(err, &templateNotFoundError)
+}
+
+type SuppressedError struct{}
+
+func (e SuppressedError) Error() string {
+	return "error suppressed"
+}
+
+type ArgParseError struct {
+	Message string
+}
+
+func (e ArgParseError) Error() string {
+	return e.Message
+}

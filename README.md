@@ -83,7 +83,6 @@ After installing Chat With Code, you're just a few steps away from a conversatio
          cwc login \
            --api-key=$API_KEY \
            --endpoint "https://your-endpoint.openai.azure.com/" \
-           --api-version "2023-12-01-preview" \
            --deployment-model "gpt-4-turbo"
          ```
 
@@ -142,7 +141,30 @@ PROMPT="please write me a conventional commit for these changes"
 git diff HEAD | cwc $PROMPT | git commit -e --file -
 ```
 
-## Template Features
+## Configuration
+
+Managing your configuration is simple with the `cwc config` command. This command allows you to view and set configuration options for cwc.
+To view the current configuration, use:
+
+```sh
+cwc config get
+```
+
+To set a configuration option, use:
+
+```sh
+cwc config set key1=value1 key2=value2 ...
+```
+
+For example, to disable the gitignore feature and the git directory exclusion, use:
+
+```sh
+cwc config set useGitignore=false excludeGitDir=false
+```
+
+To reset the configuration to default values use `cwc login` to re-authenticate.
+
+## Templates
 
 ### Overview
 

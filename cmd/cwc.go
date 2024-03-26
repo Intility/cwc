@@ -55,13 +55,11 @@ Using a specific template:
 
 func CreateRootCommand() *cobra.Command {
 	var (
-		includeFlag              string
-		excludeFlag              string
-		pathsFlag                []string
-		excludeFromGitignoreFlag bool
-		excludeGitDirFlag        bool
-		templateFlag             string
-		templateVariablesFlag    map[string]string
+		includeFlag           string
+		excludeFlag           string
+		pathsFlag             []string
+		templateFlag          string
+		templateVariablesFlag map[string]string
 	)
 
 	loginCmd := createLoginCmd()
@@ -78,13 +76,11 @@ func CreateRootCommand() *cobra.Command {
 			}
 
 			chatOpts := &chatOptions{
-				includeFlag:              includeFlag,
-				excludeFlag:              excludeFlag,
-				pathsFlag:                pathsFlag,
-				excludeFromGitignoreFlag: excludeFromGitignoreFlag,
-				excludeGitDirFlag:        excludeGitDirFlag,
-				templateFlag:             templateFlag,
-				templateVariablesFlag:    templateVariablesFlag,
+				includeFlag:           includeFlag,
+				excludeFlag:           excludeFlag,
+				pathsFlag:             pathsFlag,
+				templateFlag:          templateFlag,
+				templateVariablesFlag: templateVariablesFlag,
 			}
 
 			var prompt string
@@ -97,39 +93,33 @@ func CreateRootCommand() *cobra.Command {
 	}
 
 	initFlags(cmd, &flags{
-		includeFlag:              &includeFlag,
-		excludeFlag:              &excludeFlag,
-		pathsFlag:                &pathsFlag,
-		excludeFromGitignoreFlag: &excludeFromGitignoreFlag,
-		excludeGitDirFlag:        &excludeGitDirFlag,
-		templateFlag:             &templateFlag,
-		templateVariablesFlag:    &templateVariablesFlag,
+		includeFlag:           &includeFlag,
+		excludeFlag:           &excludeFlag,
+		pathsFlag:             &pathsFlag,
+		templateFlag:          &templateFlag,
+		templateVariablesFlag: &templateVariablesFlag,
 	})
 
 	cmd.AddCommand(loginCmd)
 	cmd.AddCommand(logoutCmd)
 	cmd.AddCommand(createTemplatesCmd())
+	cmd.AddCommand(createConfigCommand())
 
 	return cmd
 }
 
 type flags struct {
-	includeFlag              *string
-	excludeFlag              *string
-	pathsFlag                *[]string
-	excludeFromGitignoreFlag *bool
-	excludeGitDirFlag        *bool
-	templateFlag             *string
-	templateVariablesFlag    *map[string]string
+	includeFlag           *string
+	excludeFlag           *string
+	pathsFlag             *[]string
+	templateFlag          *string
+	templateVariablesFlag *map[string]string
 }
 
 func initFlags(cmd *cobra.Command, flags *flags) {
 	cmd.Flags().StringVarP(flags.includeFlag, "include", "i", ".*", "a regular expression to match files to include")
 	cmd.Flags().StringVarP(flags.excludeFlag, "exclude", "x", "", "a regular expression to match files to exclude")
 	cmd.Flags().StringSliceVarP(flags.pathsFlag, "paths", "p", []string{"."}, "a list of paths to search for files")
-	cmd.Flags().BoolVarP(flags.excludeFromGitignoreFlag,
-		"exclude-from-gitignore", "e", true, "exclude files from .gitignore")
-	cmd.Flags().BoolVarP(flags.excludeGitDirFlag, "exclude-git-dir", "g", true, "exclude the .git directory")
 	cmd.Flags().StringVarP(flags.templateFlag, "template", "t", "default", "the name of the template to use")
 	cmd.Flags().StringToStringVarP(flags.templateVariablesFlag,
 		"template-variables", "v", nil, "variables to use in the template")
@@ -142,10 +132,6 @@ func initFlags(cmd *cobra.Command, flags *flags) {
 	cmd.Flag("paths").
 		Usage = "Specify a list of paths to search for files. For example, " +
 		"to search in the 'cmd' and 'pkg' directories, use --paths cmd,pkg"
-	cmd.Flag("exclude-from-gitignore").
-		Usage = "Exclude files from .gitignore. If set to false, files mentioned in .gitignore will not be excluded"
-	cmd.Flag("exclude-git-dir").
-		Usage = "Exclude the .git directory. If set to false, the .git directory will not be excluded"
 	cmd.Flag("template").
 		Usage = "Specify the name of the template to use. For example, " +
 		"to use a template named 'tech_writer', use --template tech_writer"
@@ -217,7 +203,13 @@ func getPromptFromUserOrTemplate(templateName string) string {
 
 	template, err := getTemplate(templateName)
 	if err != nil {
-		ui.PrintMessage(err.Error()+"\n", ui.MessageTypeWarning)
+		var notFoundErr errors.TemplateNotFoundError
+		ok := stdErrors.As(err, &notFoundErr)
+
+		if !ok || (len(templateName) != 0 && templateName != "default") {
+			ui.PrintMessage(err.Error()+"\n", ui.MessageTypeWarning)
+		}
+
 		ui.PrintMessage("👤: ", ui.MessageTypeInfo)
 
 		return ui.ReadUserInput()
@@ -323,6 +315,10 @@ func getTemplate(templateName string) (*templates.Template, error) {
 
 	tmpl, err := mergedLocator.GetTemplate(templateName)
 	if err != nil {
+		if errors.IsTemplateNotFoundError(err) {
+			return nil, errors.TemplateNotFoundError{TemplateName: templateName}
+		}
+
 		return nil, fmt.Errorf("error getting template: %w", err)
 	}
 
@@ -337,8 +333,7 @@ func createSystemMessage(ctx string, templateName string, templateVariables map[
 	}
 
 	// if no template found, create a basic template as fallback
-	var templateNotFoundError errors.TemplateNotFoundError
-	if err != nil && stdErrors.As(err, &templateNotFoundError) {
+	if errors.IsTemplateNotFoundError(err) {
 		return createBuiltinSystemMessageFromContext(ctx), nil
 	}
 
@@ -397,16 +392,15 @@ func nonInteractive(args []string, templateName string, templateVars map[string]
 
 	template, err := getTemplate(templateName)
 	if err != nil {
-		// if no template found, create a basic template as fallback
 		var templateNotFoundError errors.TemplateNotFoundError
 		if stdErrors.As(err, &templateNotFoundError) {
 			if len(args) == 0 {
 				return &errors.NoPromptProvidedError{Message: "no prompt provided"}
 			}
 		}
+	} else {
+		prompt = template.DefaultPrompt
 	}
-
-	prompt = template.DefaultPrompt
 
 	// args takes precedence over template.DefaultPrompt
 	if len(args) > 0 {
@@ -457,21 +451,17 @@ func createBuiltinSystemMessageFromContext(context string) string {
 }
 
 type chatOptions struct {
-	includeFlag              string
-	excludeFlag              string
-	pathsFlag                []string
-	excludeFromGitignoreFlag bool
-	excludeGitDirFlag        bool
-	templateFlag             string
-	templateVariablesFlag    map[string]string
+	includeFlag           string
+	excludeFlag           string
+	pathsFlag             []string
+	templateFlag          string
+	templateVariablesFlag map[string]string
 }
 
 func gatherContext(opts *chatOptions) ([]filetree.File, *filetree.FileNode, error) {
 	includeFlag := opts.includeFlag
 	excludeFlag := opts.excludeFlag
 	pathsFlag := opts.pathsFlag
-	excludeFromGitignoreFlag := opts.excludeFromGitignoreFlag
-	excludeGitDirFlag := opts.excludeGitDirFlag
 
 	var excludeMatchers []pathmatcher.PathMatcher
 
@@ -485,31 +475,15 @@ func gatherContext(opts *chatOptions) ([]filetree.File, *filetree.FileNode, erro
 		excludeMatchers = append(excludeMatchers, excludeMatcher)
 	}
 
-	if excludeFromGitignoreFlag {
-		gitignoreMatcher, err := pathmatcher.NewGitignorePathMatcher()
-		if err != nil {
-			if errors.IsGitNotInstalledError(err) {
-				ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", ui.MessageTypeWarning)
-			} else {
-				return nil, nil, fmt.Errorf("error creating gitignore matcher: %w", err)
-			}
-		}
-
-		excludeMatchers = append(excludeMatchers, gitignoreMatcher)
+	excludeMatchersFromConfig, err := excludeMatchersFromConfig()
+	if err != nil {
+		return nil, nil, err
 	}
 
-	if excludeGitDirFlag {
-		gitDirMatcher, err := pathmatcher.NewRegexPathMatcher(`^\.git(/|\\)`)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error creating git directory matcher: %w", err)
-		}
-
-		excludeMatchers = append(excludeMatchers, gitDirMatcher)
-	}
+	excludeMatchers = append(excludeMatchers, excludeMatchersFromConfig...)
 
 	excludeMatcher := pathmatcher.NewCompoundPathMatcher(excludeMatchers...)
 
-	// includeMatcher
 	includeMatcher, err := pathmatcher.NewRegexPathMatcher(includeFlag)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating include matcher: %w", err)
@@ -525,4 +499,37 @@ func gatherContext(opts *chatOptions) ([]filetree.File, *filetree.FileNode, erro
 	}
 
 	return files, rootNode, nil
+}
+
+func excludeMatchersFromConfig() ([]pathmatcher.PathMatcher, error) {
+	var excludeMatchers []pathmatcher.PathMatcher
+
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return excludeMatchers, fmt.Errorf("error loading config: %w", err)
+	}
+
+	if cfg.UseGitignore {
+		gitignoreMatcher, err := pathmatcher.NewGitignorePathMatcher()
+		if err != nil {
+			if errors.IsGitNotInstalledError(err) {
+				ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", ui.MessageTypeWarning)
+			} else {
+				return nil, fmt.Errorf("error creating gitignore matcher: %w", err)
+			}
+		}
+
+		excludeMatchers = append(excludeMatchers, gitignoreMatcher)
+	}
+
+	if cfg.ExcludeGitDir {
+		gitDirMatcher, err := pathmatcher.NewRegexPathMatcher(`^\.git(/|\\)`)
+		if err != nil {
+			return nil, fmt.Errorf("error creating git directory matcher: %w", err)
+		}
+
+		excludeMatchers = append(excludeMatchers, gitDirMatcher)
+	}
+
+	return excludeMatchers, nil
 }
