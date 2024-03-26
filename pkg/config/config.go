@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,11 +8,13 @@ import (
 
 	"github.com/intility/cwc/pkg/errors"
 	"github.com/sashabaranov/go-openai"
+	"gopkg.in/yaml.v3"
 )
 
 const (
-	configFileName        = "cwc.json" // The name of the config file we want to save
+	configFileName        = "cwc.yaml" // The name of the config file we want to save
 	configFilePermissions = 0o600      // The permissions we want to set on the config file
+	apiVersion            = "2024-02-01"
 )
 
 func NewFromConfigFile() (openai.ClientConfig, error) {
@@ -29,7 +30,7 @@ func NewFromConfigFile() (openai.ClientConfig, error) {
 	}
 
 	config := openai.DefaultAzureConfig(cfg.APIKey(), cfg.Endpoint)
-	config.APIVersion = cfg.APIVersion
+	config.APIVersion = apiVersion
 	config.AzureModelMapperFunc = func(model string) string {
 		return cfg.ModelDeployment
 	}
@@ -43,19 +44,21 @@ func SanitizeInput(input string) string {
 }
 
 type Config struct {
-	Endpoint        string `json:"endpoint"`
-	APIVersion      string `json:"apiVersion"`
-	ModelDeployment string `json:"modelDeployment"`
+	Endpoint        string `yaml:"endpoint"`
+	ModelDeployment string `yaml:"modelDeployment"`
+	ExcludeGitDir   bool   `yaml:"excludeGitDir"`
+	UseGitignore    bool   `yaml:"useGitignore"`
 	// Keep APIKey unexported to avoid accidental exposure
 	apiKey string
 }
 
 // NewConfig creates a new Config object.
-func NewConfig(endpoint, apiVersion, modelDeployment string) *Config {
+func NewConfig(endpoint, modelDeployment string) *Config {
 	return &Config{
 		Endpoint:        endpoint,
-		APIVersion:      apiVersion,
 		ModelDeployment: modelDeployment,
+		ExcludeGitDir:   true,
+		UseGitignore:    true,
 		apiKey:          "",
 	}
 }
@@ -80,10 +83,6 @@ func ValidateConfig(cfg *Config) error {
 
 	if cfg.Endpoint == "" {
 		validationErrors = append(validationErrors, "endpoint must be provided and not be empty")
-	}
-
-	if cfg.APIVersion == "" {
-		validationErrors = append(validationErrors, "apiVersion must be provided and not be empty")
 	}
 
 	if cfg.ModelDeployment == "" {
@@ -112,7 +111,7 @@ func SaveConfig(config *Config) error {
 
 	configFilePath := filepath.Join(configDir, configFileName)
 
-	data, err := json.Marshal(config)
+	data, err := yaml.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("error marshalling config data: %w", err)
 	}
@@ -151,7 +150,7 @@ func LoadConfig() (*Config, error) {
 	}
 
 	var cfg Config
-	err = json.Unmarshal(data, &cfg)
+	err = yaml.Unmarshal(data, &cfg)
 
 	if err != nil {
 		return nil, errors.ConfigValidationError{Errors: []string{
