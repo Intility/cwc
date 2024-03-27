@@ -64,7 +64,7 @@ func createLoginCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&apiKeyFlag, "api-key", "k", "", "Azure OpenAI API Key")
 	cmd.Flags().StringVarP(&endpointFlag, "endpoint", "e", "", "Azure OpenAI API Endpoint")
-	cmd.Flags().StringVarP(&modelDeploymentFlag, "model-deployment", "m", "", "Azure OpenAI Model Deployment")
+	cmd.Flags().StringVarP(&modelDeploymentFlag, "deployment-name", "d", "", "Azure OpenAI Deployment Name")
 
 	return cmd
 }

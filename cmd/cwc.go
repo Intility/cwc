@@ -6,7 +6,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/intility/cwc/internal/client"
 	"github.com/intility/cwc/internal/cmd"
+	"github.com/intility/cwc/internal/config"
+	"github.com/intility/cwc/internal/prompt"
+	"github.com/intility/cwc/internal/systemmessage"
+	"github.com/intility/cwc/internal/template"
 )
 
 const (
@@ -59,8 +64,14 @@ func CreateRootCommand() *cobra.Command {
 		Long:  longDescription,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			deps := createDefaultDeps(args, chatOpts.TemplateName, chatOpts.TemplateVariables)
+
 			if isPiped(os.Stdin) {
-				nic := cmd.NewNonInteractiveCmd(args, chatOpts.TemplateName, chatOpts.TemplateVariables)
+				nic := cmd.NewNonInteractiveCmd(
+					deps.clientProvider,
+					deps.promptResolver,
+					deps.systemMessageGenerator,
+				)
 
 				err := nic.Run()
 				if err != nil {
@@ -70,7 +81,12 @@ func CreateRootCommand() *cobra.Command {
 				return nil
 			}
 
-			interactiveCmd := cmd.NewInteractiveCmd(args, chatOpts)
+			interactiveCmd := cmd.NewInteractiveCmd(
+				deps.promptResolver,
+				deps.clientProvider,
+				deps.systemMessageGenerator,
+				chatOpts,
+			)
 
 			err := interactiveCmd.Run()
 			if err != nil {
@@ -89,6 +105,34 @@ func CreateRootCommand() *cobra.Command {
 	rootCmd.AddCommand(createConfigCommand())
 
 	return rootCmd
+}
+
+type defaultDeps struct {
+	configProvider         config.Provider
+	clientProvider         client.Provider
+	templateProvider       template.Provider
+	promptResolver         prompt.Resolver
+	systemMessageGenerator systemmessage.Generator
+}
+
+func createDefaultDeps(args []string, templateName string, templateVars map[string]string) *defaultDeps {
+	cfgProvider := config.NewDefaultProvider()
+	clientProvider := client.NewOpenAIClientProvider(cfgProvider)
+	tmplProvider := template.NewTemplateProvider(cfgProvider)
+	promptResolver := prompt.NewArgsOrTemplatePromptResolver(tmplProvider, args, templateName)
+	systemMessageGenerator := systemmessage.NewTemplatedSystemMessageGenerator(
+		tmplProvider,
+		templateName,
+		templateVars,
+	)
+
+	return &defaultDeps{
+		configProvider:         cfgProvider,
+		clientProvider:         clientProvider,
+		templateProvider:       tmplProvider,
+		promptResolver:         promptResolver,
+		systemMessageGenerator: systemMessageGenerator,
+	}
 }
 
 func initFlags(cmd *cobra.Command, opts *cmd.InteractiveChatOptions) {

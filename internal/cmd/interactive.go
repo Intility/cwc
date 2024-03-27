@@ -5,6 +5,9 @@ import (
 
 	"github.com/sashabaranov/go-openai"
 
+	"github.com/intility/cwc/internal/client"
+	"github.com/intility/cwc/internal/prompt"
+	"github.com/intility/cwc/internal/systemmessage"
 	"github.com/intility/cwc/pkg/chat"
 	"github.com/intility/cwc/pkg/filetree"
 	"github.com/intility/cwc/pkg/pathmatcher"
@@ -20,19 +23,30 @@ type InteractiveChatOptions struct {
 }
 
 type InteractiveCmd struct {
-	prompt      string
-	chatOptions InteractiveChatOptions
+	clientProvider client.Provider
+	promptResolver prompt.Resolver
+	smGenerator    systemmessage.Generator
+	chatOptions    InteractiveChatOptions
 }
 
-func NewInteractiveCmd(args []string, chatOptions InteractiveChatOptions) *InteractiveCmd {
-	prompt := determinePrompt(args, chatOptions.TemplateName)
-	return &InteractiveCmd{prompt: prompt, chatOptions: chatOptions}
+func NewInteractiveCmd(
+	promptResolver prompt.Resolver,
+	clientProvider client.Provider,
+	smGenerator systemmessage.Generator,
+	chatOptions InteractiveChatOptions,
+) *InteractiveCmd {
+	return &InteractiveCmd{
+		promptResolver: promptResolver,
+		clientProvider: clientProvider,
+		chatOptions:    chatOptions,
+		smGenerator:    smGenerator,
+	}
 }
 
 func (c *InteractiveCmd) Run() error {
-	client, err := newClientFromConfig()
+	openaiClient, err := c.clientProvider.NewClientFromConfig()
 	if err != nil {
-		return fmt.Errorf("error creating client: %w", err)
+		return fmt.Errorf("error creating openaiClient: %w", err)
 	}
 
 	files, fileTree, err := c.gatherAndPrintContext()
@@ -46,25 +60,27 @@ func (c *InteractiveCmd) Run() error {
 
 	contextStr := createContext(fileTree, files)
 
-	systemMessage, err := createSystemMessage(contextStr, c.chatOptions.TemplateName, c.chatOptions.TemplateVariables)
+	generatedSystemMessage, err := c.smGenerator.GenerateSystemMessage(contextStr)
 	if err != nil {
 		return fmt.Errorf("error creating system message: %w", err)
 	}
 
 	ui.PrintMessage("Type '/exit' to end the chat.\n", ui.MessageTypeNotice)
 
-	if c.prompt == "" {
+	userPrompt := c.promptResolver.ResolvePrompt()
+
+	if userPrompt == "" {
 		ui.PrintMessage("👤: ", ui.MessageTypeInfo)
-		c.prompt = ui.ReadUserInput()
+		userPrompt = ui.ReadUserInput()
 	} else {
-		ui.PrintMessage(fmt.Sprintf("👤: %s\n", c.prompt), ui.MessageTypeInfo)
+		ui.PrintMessage(fmt.Sprintf("👤: %s\n", userPrompt), ui.MessageTypeInfo)
 	}
 
-	if c.prompt == "/exit" {
+	if userPrompt == "/exit" {
 		return nil
 	}
 
-	c.handleChat(client, systemMessage, c.prompt)
+	c.handleChat(openaiClient, generatedSystemMessage, userPrompt)
 
 	return nil
 }

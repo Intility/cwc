@@ -5,25 +5,36 @@ import (
 	"io"
 	"os"
 
+	"github.com/intility/cwc/internal/client"
+	"github.com/intility/cwc/internal/prompt"
+	"github.com/intility/cwc/internal/systemmessage"
 	"github.com/intility/cwc/pkg/chat"
+	"github.com/intility/cwc/pkg/errors"
 	"github.com/intility/cwc/pkg/ui"
 )
 
 type NonInteractiveCmd struct {
-	prompt       string
-	templateName string
-	templateVars map[string]string
+	clientProvider client.Provider
+	promptResolver prompt.Resolver
+	smGenerator    systemmessage.Generator
 }
 
-func NewNonInteractiveCmd(args []string, templateName string, templateVars map[string]string) *NonInteractiveCmd {
-	prompt := determinePrompt(args, templateName)
-	return &NonInteractiveCmd{prompt: prompt, templateName: templateName, templateVars: templateVars}
+func NewNonInteractiveCmd(
+	clientProvider client.Provider,
+	promptResolver prompt.Resolver,
+	smGenerator systemmessage.Generator,
+) *NonInteractiveCmd {
+	return &NonInteractiveCmd{
+		clientProvider: clientProvider,
+		promptResolver: promptResolver,
+		smGenerator:    smGenerator,
+	}
 }
 
 func (c *NonInteractiveCmd) Run() error {
-	client, err := newClientFromConfig()
+	openaiClient, err := c.clientProvider.NewClientFromConfig()
 	if err != nil {
-		return fmt.Errorf("error creating client: %w", err)
+		return fmt.Errorf("error creating openaiClient: %w", err)
 	}
 
 	systemCtx, err := c.readContextFromStdIn()
@@ -31,13 +42,19 @@ func (c *NonInteractiveCmd) Run() error {
 		return fmt.Errorf("error reading context from stdin: %w", err)
 	}
 
-	systemMessage, err := createSystemMessage(systemCtx, c.templateName, c.templateVars)
+	generateSystemMessage, err := c.smGenerator.GenerateSystemMessage(systemCtx)
 	if err != nil {
 		return fmt.Errorf("error creating system message: %w", err)
 	}
 
-	chatInstance := chat.NewChat(client, systemMessage, c.printChunk)
-	conversation := chatInstance.BeginConversation(c.prompt)
+	userPrompt := c.promptResolver.ResolvePrompt()
+
+	if userPrompt == "" {
+		return errors.NoPromptProvidedError{Message: "non-interactive mode requires a prompt"}
+	}
+
+	chatInstance := chat.NewChat(openaiClient, generateSystemMessage, c.printChunk)
+	conversation := chatInstance.BeginConversation(userPrompt)
 
 	conversation.WaitMyTurn()
 
