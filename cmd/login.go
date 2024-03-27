@@ -3,10 +3,11 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/intility/cwc/pkg/config"
 	"github.com/intility/cwc/pkg/errors"
 	"github.com/intility/cwc/pkg/ui"
-	"github.com/spf13/cobra"
 )
 
 var (

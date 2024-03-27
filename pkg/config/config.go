@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/intility/cwc/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"gopkg.in/yaml.v3"
+
+	"github.com/intility/cwc/pkg/errors"
 )
 
 const (
