@@ -6,10 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/intility/cwc/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"gopkg.in/yaml.v3"
-
-	"github.com/intility/cwc/pkg/errors"
 )
 
 const (
@@ -116,8 +115,8 @@ func SaveConfig(config *Config) error {
 	if err != nil {
 		return fmt.Errorf("error marshalling config data: %w", err)
 	}
-
-	err = storeAPIKeyInKeyring(config.APIKey())
+	apiKeyStorage := ResolveAPIKeyStorage()
+	err = apiKeyStorage.StoreAPIKey(config.APIKey())
 
 	if err != nil {
 		return err
@@ -159,8 +158,8 @@ func LoadConfig() (*Config, error) {
 			"please run `cwc login` to create a new config file.",
 		}}
 	}
-
-	apiKey, err := getAPIKeyFromKeyring()
+	apiKeyStorage := ResolveAPIKeyStorage()
+	apiKey, err := apiKeyStorage.GetAPIKey()
 	if err != nil {
 		return nil, errors.ConfigValidationError{Errors: []string{
 			err.Error(),
@@ -185,8 +184,8 @@ func ClearConfig() error {
 	if err != nil {
 		return fmt.Errorf("error removing config file: %w", err)
 	}
-
-	err = clearAPIKeyInKeyring()
+	apiKeyStorage := ResolveAPIKeyStorage()
+	err = apiKeyStorage.ClearAPIKey()
 	if err != nil {
 		return err
 	}
