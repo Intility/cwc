@@ -1,0 +1,12 @@
+quiet: False
+keeptree: True
+disable-version-string: True
+with-expecter: True
+mockname: "{{.InterfaceName}}"
+filename: "{{.MockName}}.go"
+outpkg: mocks
+packages:
+  github.com/intility/cwc/internal:
+    # place your package-specific config here
+    config:
+      recursive: true
