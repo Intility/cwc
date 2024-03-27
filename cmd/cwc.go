@@ -42,13 +42,13 @@ Using a specific template:
 )
 
 func CreateRootCommand() *cobra.Command {
-	var (
-		includeFlag           string
-		excludeFlag           string
-		pathsFlag             []string
-		templateFlag          string
-		templateVariablesFlag map[string]string
-	)
+	chatOpts := cmd.InteractiveChatOptions{
+		IncludePattern:    "",
+		ExcludePattern:    "",
+		Paths:             []string{},
+		TemplateName:      "",
+		TemplateVariables: nil,
+	}
 
 	loginCmd := createLoginCmd()
 	logoutCmd := createLogoutCmd()
@@ -60,7 +60,7 @@ func CreateRootCommand() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			if isPiped(os.Stdin) {
-				nic := cmd.NewNonInteractiveCmd(args, templateFlag, templateVariablesFlag)
+				nic := cmd.NewNonInteractiveCmd(args, chatOpts.TemplateName, chatOpts.TemplateVariables)
 
 				err := nic.Run()
 				if err != nil {
@@ -68,14 +68,6 @@ func CreateRootCommand() *cobra.Command {
 				}
 
 				return nil
-			}
-
-			chatOpts := cmd.InteractiveChatOptions{
-				IncludePattern:    includeFlag,
-				ExcludePattern:    excludeFlag,
-				Paths:             pathsFlag,
-				TemplateName:      templateFlag,
-				TemplateVariables: templateVariablesFlag,
 			}
 
 			interactiveCmd := cmd.NewInteractiveCmd(args, chatOpts)
@@ -89,13 +81,7 @@ func CreateRootCommand() *cobra.Command {
 		},
 	}
 
-	initFlags(rootCmd, &flags{
-		includeFlag:           &includeFlag,
-		excludeFlag:           &excludeFlag,
-		pathsFlag:             &pathsFlag,
-		templateFlag:          &templateFlag,
-		templateVariablesFlag: &templateVariablesFlag,
-	})
+	initFlags(rootCmd, &chatOpts)
 
 	rootCmd.AddCommand(loginCmd)
 	rootCmd.AddCommand(logoutCmd)
@@ -105,20 +91,12 @@ func CreateRootCommand() *cobra.Command {
 	return rootCmd
 }
 
-type flags struct {
-	includeFlag           *string
-	excludeFlag           *string
-	pathsFlag             *[]string
-	templateFlag          *string
-	templateVariablesFlag *map[string]string
-}
-
-func initFlags(cmd *cobra.Command, flags *flags) {
-	cmd.Flags().StringVarP(flags.includeFlag, "include", "i", ".*", "a regular expression to match files to include")
-	cmd.Flags().StringVarP(flags.excludeFlag, "exclude", "x", "", "a regular expression to match files to exclude")
-	cmd.Flags().StringSliceVarP(flags.pathsFlag, "paths", "p", []string{"."}, "a list of paths to search for files")
-	cmd.Flags().StringVarP(flags.templateFlag, "template", "t", "default", "the name of the template to use")
-	cmd.Flags().StringToStringVarP(flags.templateVariablesFlag,
+func initFlags(cmd *cobra.Command, opts *cmd.InteractiveChatOptions) {
+	cmd.Flags().StringVarP(&opts.IncludePattern, "include", "i", ".*", "a regular expression to match files to include")
+	cmd.Flags().StringVarP(&opts.ExcludePattern, "exclude", "x", "", "a regular expression to match files to exclude")
+	cmd.Flags().StringSliceVarP(&opts.Paths, "paths", "p", []string{"."}, "a list of paths to search for files")
+	cmd.Flags().StringVarP(&opts.TemplateName, "template", "t", "default", "the name of the template to use")
+	cmd.Flags().StringToStringVarP(&opts.TemplateVariables,
 		"template-variables", "v", nil, "variables to use in the template")
 
 	cmd.Flag("include").
