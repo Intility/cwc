@@ -1,28 +1,25 @@
-package cmd
+package internal
 
 import (
 	"fmt"
 	"io"
 	"os"
 
-	"github.com/intility/cwc/internal/client"
-	"github.com/intility/cwc/internal/prompt"
-	"github.com/intility/cwc/internal/systemmessage"
 	"github.com/intility/cwc/pkg/chat"
 	"github.com/intility/cwc/pkg/errors"
 	"github.com/intility/cwc/pkg/ui"
 )
 
 type NonInteractiveCmd struct {
-	clientProvider client.Provider
-	promptResolver prompt.Resolver
-	smGenerator    systemmessage.Generator
+	clientProvider ClientProvider
+	promptResolver PromptResolver
+	smGenerator    SystemMessageGenerator
 }
 
 func NewNonInteractiveCmd(
-	clientProvider client.Provider,
-	promptResolver prompt.Resolver,
-	smGenerator systemmessage.Generator,
+	clientProvider ClientProvider,
+	promptResolver PromptResolver,
+	smGenerator SystemMessageGenerator,
 ) *NonInteractiveCmd {
 	return &NonInteractiveCmd{
 		clientProvider: clientProvider,

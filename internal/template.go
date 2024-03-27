@@ -1,23 +1,22 @@
-package template
+package internal
 
 import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/intility/cwc/internal/config"
 	"github.com/intility/cwc/pkg/errors"
 	"github.com/intility/cwc/pkg/templates"
 )
 
-type Provider interface {
+type TemplateProvider interface {
 	GetTemplate(templateName string) (*templates.Template, error)
 }
 
 type DefaultTemplateProvider struct {
-	configProvider config.Provider
+	configProvider ConfigProvider
 }
 
-func NewTemplateProvider(cfgProvider config.Provider) *DefaultTemplateProvider {
+func NewTemplateProvider(cfgProvider ConfigProvider) *DefaultTemplateProvider {
 	return &DefaultTemplateProvider{configProvider: cfgProvider}
 }
 

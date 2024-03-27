@@ -6,12 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/intility/cwc/internal/client"
-	"github.com/intility/cwc/internal/cmd"
-	"github.com/intility/cwc/internal/config"
-	"github.com/intility/cwc/internal/prompt"
-	"github.com/intility/cwc/internal/systemmessage"
-	"github.com/intility/cwc/internal/template"
+	"github.com/intility/cwc/internal"
 )
 
 const (
@@ -47,7 +42,7 @@ Using a specific template:
 )
 
 func CreateRootCommand() *cobra.Command {
-	chatOpts := cmd.InteractiveChatOptions{
+	chatOpts := internal.InteractiveChatOptions{
 		IncludePattern:    "",
 		ExcludePattern:    "",
 		Paths:             []string{},
@@ -67,7 +62,7 @@ func CreateRootCommand() *cobra.Command {
 			deps := createDefaultDeps(args, chatOpts.TemplateName, chatOpts.TemplateVariables)
 
 			if isPiped(os.Stdin) {
-				nic := cmd.NewNonInteractiveCmd(
+				nic := internal.NewNonInteractiveCmd(
 					deps.clientProvider,
 					deps.promptResolver,
 					deps.systemMessageGenerator,
@@ -81,7 +76,7 @@ func CreateRootCommand() *cobra.Command {
 				return nil
 			}
 
-			interactiveCmd := cmd.NewInteractiveCmd(
+			interactiveCmd := internal.NewInteractiveCmd(
 				deps.promptResolver,
 				deps.clientProvider,
 				deps.systemMessageGenerator,
@@ -108,19 +103,19 @@ func CreateRootCommand() *cobra.Command {
 }
 
 type defaultDeps struct {
-	configProvider         config.Provider
-	clientProvider         client.Provider
-	templateProvider       template.Provider
-	promptResolver         prompt.Resolver
-	systemMessageGenerator systemmessage.Generator
+	configProvider         internal.ConfigProvider
+	clientProvider         internal.ClientProvider
+	templateProvider       internal.TemplateProvider
+	promptResolver         internal.PromptResolver
+	systemMessageGenerator internal.SystemMessageGenerator
 }
 
 func createDefaultDeps(args []string, templateName string, templateVars map[string]string) *defaultDeps {
-	cfgProvider := config.NewDefaultProvider()
-	clientProvider := client.NewOpenAIClientProvider(cfgProvider)
-	tmplProvider := template.NewTemplateProvider(cfgProvider)
-	promptResolver := prompt.NewArgsOrTemplatePromptResolver(tmplProvider, args, templateName)
-	systemMessageGenerator := systemmessage.NewTemplatedSystemMessageGenerator(
+	cfgProvider := internal.NewDefaultProvider()
+	clientProvider := internal.NewOpenAIClientProvider(cfgProvider)
+	tmplProvider := internal.NewTemplateProvider(cfgProvider)
+	promptResolver := internal.NewArgsOrTemplatePromptResolver(tmplProvider, args, templateName)
+	systemMessageGenerator := internal.NewTemplatedSystemMessageGenerator(
 		tmplProvider,
 		templateName,
 		templateVars,
@@ -135,7 +130,7 @@ func createDefaultDeps(args []string, templateName string, templateVars map[stri
 	}
 }
 
-func initFlags(cmd *cobra.Command, opts *cmd.InteractiveChatOptions) {
+func initFlags(cmd *cobra.Command, opts *internal.InteractiveChatOptions) {
 	cmd.Flags().StringVarP(&opts.IncludePattern, "include", "i", ".*", "a regular expression to match files to include")
 	cmd.Flags().StringVarP(&opts.ExcludePattern, "exclude", "x", "", "a regular expression to match files to exclude")
 	cmd.Flags().StringSliceVarP(&opts.Paths, "paths", "p", []string{"."}, "a list of paths to search for files")

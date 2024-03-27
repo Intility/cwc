@@ -1,4 +1,4 @@
-package config
+package internal
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/intility/cwc/pkg/config"
 )
 
-type Provider interface {
+type ConfigProvider interface {
 	LoadConfig() (*config.Config, error)
 	NewFromConfigFile() (openai.ClientConfig, error)
 	GetConfigDir() (string, error)

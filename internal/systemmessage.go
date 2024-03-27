@@ -1,26 +1,25 @@
-package systemmessage
+package internal
 
 import (
 	"fmt"
 	"strings"
 	tt "text/template"
 
-	"github.com/intility/cwc/internal/template"
 	"github.com/intility/cwc/pkg/errors"
 )
 
-type Generator interface {
+type SystemMessageGenerator interface {
 	GenerateSystemMessage(ctx string) (string, error)
 }
 
 type TemplatedSystemMessageGenerator struct {
-	templateProvider template.Provider
+	templateProvider TemplateProvider
 	templateName     string
 	templateVars     map[string]string
 }
 
 func NewTemplatedSystemMessageGenerator(
-	templateProvider template.Provider,
+	templateProvider TemplateProvider,
 	templateName string,
 	templateVars map[string]string,
 ) *TemplatedSystemMessageGenerator {

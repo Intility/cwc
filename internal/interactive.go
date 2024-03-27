@@ -1,13 +1,10 @@
-package cmd
+package internal
 
 import (
 	"fmt"
 
 	"github.com/sashabaranov/go-openai"
 
-	"github.com/intility/cwc/internal/client"
-	"github.com/intility/cwc/internal/prompt"
-	"github.com/intility/cwc/internal/systemmessage"
 	"github.com/intility/cwc/pkg/chat"
 	"github.com/intility/cwc/pkg/filetree"
 	"github.com/intility/cwc/pkg/pathmatcher"
@@ -23,16 +20,16 @@ type InteractiveChatOptions struct {
 }
 
 type InteractiveCmd struct {
-	clientProvider client.Provider
-	promptResolver prompt.Resolver
-	smGenerator    systemmessage.Generator
+	clientProvider ClientProvider
+	promptResolver PromptResolver
+	smGenerator    SystemMessageGenerator
 	chatOptions    InteractiveChatOptions
 }
 
 func NewInteractiveCmd(
-	promptResolver prompt.Resolver,
-	clientProvider client.Provider,
-	smGenerator systemmessage.Generator,
+	promptResolver PromptResolver,
+	clientProvider ClientProvider,
+	smGenerator SystemMessageGenerator,
 	chatOptions InteractiveChatOptions,
 ) *InteractiveCmd {
 	return &InteractiveCmd{

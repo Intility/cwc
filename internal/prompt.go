@@ -1,24 +1,23 @@
-package prompt
+package internal
 
 import (
 	stdErrors "errors"
 
-	"github.com/intility/cwc/internal/template"
 	"github.com/intility/cwc/pkg/errors"
 )
 
-type Resolver interface {
+type PromptResolver interface {
 	ResolvePrompt() string
 }
 
 type ArgsOrTemplatePromptResolver struct {
 	args             []string
 	templateName     string
-	templateProvider template.Provider
+	templateProvider TemplateProvider
 }
 
 func NewArgsOrTemplatePromptResolver(
-	tmplProvider template.Provider,
+	tmplProvider TemplateProvider,
 	args []string,
 	tmplName string,
 ) *ArgsOrTemplatePromptResolver {
