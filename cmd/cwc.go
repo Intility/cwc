@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-
+	"github.com/intility/cwc/pkg/templates"
 	"github.com/spf13/cobra"
+	"os"
+	"path/filepath"
 
 	"github.com/intility/cwc/internal"
 )
@@ -105,7 +106,7 @@ func CreateRootCommand() *cobra.Command {
 type defaultDeps struct {
 	configProvider         internal.ConfigProvider
 	clientProvider         internal.ClientProvider
-	templateProvider       internal.TemplateProvider
+	templateLocator        templates.TemplateLocator
 	promptResolver         internal.PromptResolver
 	systemMessageGenerator internal.SystemMessageGenerator
 }
@@ -113,10 +114,10 @@ type defaultDeps struct {
 func createDefaultDeps(args []string, templateName string, templateVars map[string]string) *defaultDeps {
 	cfgProvider := internal.NewDefaultProvider()
 	clientProvider := internal.NewOpenAIClientProvider(cfgProvider)
-	tmplProvider := internal.NewTemplateProvider(cfgProvider)
-	promptResolver := internal.NewArgsOrTemplatePromptResolver(tmplProvider, args, templateName)
+	templateLocator := getTemplateLocator(cfgProvider)
+	promptResolver := internal.NewArgsOrTemplatePromptResolver(templateLocator, args, templateName)
 	systemMessageGenerator := internal.NewTemplatedSystemMessageGenerator(
-		tmplProvider,
+		templateLocator,
 		templateName,
 		templateVars,
 	)
@@ -124,10 +125,24 @@ func createDefaultDeps(args []string, templateName string, templateVars map[stri
 	return &defaultDeps{
 		configProvider:         cfgProvider,
 		clientProvider:         clientProvider,
-		templateProvider:       tmplProvider,
+		templateLocator:        templateLocator,
 		promptResolver:         promptResolver,
 		systemMessageGenerator: systemMessageGenerator,
 	}
+}
+
+func getTemplateLocator(cfgProvider internal.ConfigProvider) templates.TemplateLocator {
+	var locators []templates.TemplateLocator
+
+	configDir, err := cfgProvider.GetConfigDir()
+	if err == nil {
+		locators = append(locators, templates.NewYamlFileTemplateLocator(filepath.Join(configDir, "templates.yaml")))
+	}
+
+	locators = append(locators, templates.NewYamlFileTemplateLocator(filepath.Join(".cwc", "templates.yaml")))
+	mergedLocator := templates.NewMergedTemplateLocator(locators...)
+
+	return mergedLocator
 }
 
 func initFlags(cmd *cobra.Command, opts *internal.InteractiveChatOptions) {

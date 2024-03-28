@@ -2,60 +2,77 @@ package internal_test
 
 import (
 	stdErrors "errors"
-	"github.com/intility/cwc/internal"
-	"github.com/intility/cwc/internal/mocks"
-	"github.com/intility/cwc/pkg/errors"
-	"github.com/intility/cwc/pkg/templates"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/intility/cwc/internal"
+	"github.com/intility/cwc/mocks"
+	"github.com/intility/cwc/pkg/templates"
 )
 
-func TestArgsOrTemplatePromptResolver_ResolvePromptUsesTemplatePrompt(t *testing.T) {
-	mockTemplateProvider := &mocks.TemplateProvider{}
-	testTemplate := &templates.Template{DefaultPrompt: "test"}
-	mockTemplateProvider.On("GetTemplate", "test").Return(testTemplate, nil)
+func TestArgsOrTemplatePromptResolver_ResolvePrompt(t *testing.T) {
+	// Define the test cases
+	type testConfig struct {
+		locator      *mocks.TemplateLocator
+		testTemplate *templates.Template
+	}
 
-	resolver := internal.NewArgsOrTemplatePromptResolver(mockTemplateProvider, []string{}, "test")
+	tests := []struct {
+		name         string
+		args         []string
+		templateName string
+		setupMocks   func(testConfig)
+		wantResult   func(t *testing.T, result string)
+	}{
+		{
+			name:         "template default prompt",
+			args:         []string{},
+			templateName: "test",
+			setupMocks: func(m testConfig) {
+				m.testTemplate.DefaultPrompt = "foo"
+				m.locator.On("GetTemplate", "test").Return(m.testTemplate, nil)
+			},
+			wantResult: func(t *testing.T, prompt string) {
+				assert.Equal(t, "foo", prompt)
+			},
+		},
+		{
+			name:         "args prompt when error getting template",
+			args:         []string{"bar"},
+			templateName: "test",
+			setupMocks: func(m testConfig) {
+				m.locator.On("GetTemplate", "test").Return(nil, stdErrors.New("error"))
+			},
+			wantResult: func(t *testing.T, prompt string) {
+				assert.Equal(t, "bar", prompt)
+			},
+		},
+		{
+			name:         "args prompt overrides template",
+			args:         []string{"bar"},
+			templateName: "test",
+			setupMocks: func(m testConfig) {
+				m.testTemplate.DefaultPrompt = "foo"
+				m.locator.On("GetTemplate", "test").Return(m.testTemplate, nil)
+			},
+			wantResult: func(t *testing.T, prompt string) {
+				assert.Equal(t, "bar", prompt)
+			},
+		},
+	}
 
-	prompt := resolver.ResolvePrompt()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			locator := &mocks.TemplateLocator{}
+			cfg := testConfig{locator: locator, testTemplate: &templates.Template{}}
+			tt.setupMocks(cfg)
 
-	mockTemplateProvider.AssertExpectations(t)
-	assert.Equal(t, "test", prompt)
-}
+			resolver := internal.NewArgsOrTemplatePromptResolver(locator, tt.args, tt.templateName)
+			prompt := resolver.ResolvePrompt()
 
-func TestArgsOrTemplatePromptResolver_ResolvePromptUsesArgsPrompt(t *testing.T) {
-	args := []string{"arg prompt"}
-	mockTemplateProvider := &mocks.TemplateProvider{}
-	testTemplate := &templates.Template{DefaultPrompt: "template prompt"}
-	mockTemplateProvider.On("GetTemplate", "test").Return(testTemplate, nil)
-	resolver := internal.NewArgsOrTemplatePromptResolver(mockTemplateProvider, args, "test")
-
-	prompt := resolver.ResolvePrompt()
-
-	mockTemplateProvider.AssertExpectations(t)
-	assert.Equal(t, "arg prompt", prompt)
-}
-
-func TestArgsOrTemplatePromptResolver_ResolvePromptReturnsEmptyStringWhenTemplateNotFound(t *testing.T) {
-	mockTemplateProvider := &mocks.TemplateProvider{}
-	err := errors.TemplateNotFoundError{TemplateName: "test"}
-	mockTemplateProvider.On("GetTemplate", "test").Return(nil, err)
-	resolver := internal.NewArgsOrTemplatePromptResolver(mockTemplateProvider, []string{}, "test")
-
-	prompt := resolver.ResolvePrompt()
-
-	mockTemplateProvider.AssertExpectations(t)
-	assert.Equal(t, "", prompt)
-}
-
-func TestArgsOrTemplatePromptResolver_ResolvePromptReturnsEmptyStringWhenTemplateProviderFails(t *testing.T) {
-	mockTemplateProvider := &mocks.TemplateProvider{}
-	err := stdErrors.New("error")
-	mockTemplateProvider.On("GetTemplate", "test").Return(nil, err)
-	resolver := internal.NewArgsOrTemplatePromptResolver(mockTemplateProvider, []string{}, "test")
-
-	prompt := resolver.ResolvePrompt()
-
-	mockTemplateProvider.AssertExpectations(t)
-	assert.Equal(t, "", prompt)
+			locator.AssertExpectations(t)
+			tt.wantResult(t, prompt)
+		})
+	}
 }

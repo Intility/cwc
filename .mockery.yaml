@@ -4,8 +4,8 @@ with-expecter: true
 all: true
 mockname: "{{.InterfaceName}}"
 filename: "{{.MockName}}.go"
+dir: "mocks"
 outpkg: "mocks"
 packages:
   github.com/intility/cwc/internal:
-    config:
-      dir: internal/mocks
+  github.com/intility/cwc/pkg/templates:

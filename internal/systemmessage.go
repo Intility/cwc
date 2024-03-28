@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/intility/cwc/pkg/templates"
 	"strings"
 	tt "text/template"
 
@@ -13,33 +14,37 @@ type SystemMessageGenerator interface {
 }
 
 type TemplatedSystemMessageGenerator struct {
-	templateProvider TemplateProvider
-	templateName     string
-	templateVars     map[string]string
+	templateLocator templates.TemplateLocator
+	templateName    string
+	templateVars    map[string]string
 }
 
 func NewTemplatedSystemMessageGenerator(
-	templateProvider TemplateProvider,
+	templateLocator templates.TemplateLocator,
 	templateName string,
 	templateVars map[string]string,
 ) *TemplatedSystemMessageGenerator {
 	return &TemplatedSystemMessageGenerator{
-		templateProvider: templateProvider,
-		templateName:     templateName,
-		templateVars:     templateVars,
+		templateLocator: templateLocator,
+		templateName:    templateName,
+		templateVars:    templateVars,
 	}
 }
 
 func (smg *TemplatedSystemMessageGenerator) GenerateSystemMessage(ctx string) (string, error) {
-	tmpl, err := smg.templateProvider.GetTemplate(smg.templateName)
+	tmpl, err := smg.templateLocator.GetTemplate(smg.templateName)
 
 	if smg.templateVars == nil {
 		smg.templateVars = make(map[string]string)
 	}
 
 	// if no template found, create a basic template as fallback
-	if errors.IsTemplateNotFoundError(err) {
-		return smg.createBuiltinSystemMessageFromContext(ctx), nil
+	if err != nil {
+		if errors.IsTemplateNotFoundError(err) {
+			return CreateBuiltinSystemMessageFromContext(ctx), nil
+		}
+
+		return "", fmt.Errorf("error getting template: %w", err)
 	}
 
 	// compile the template.SystemMessage as a go template
@@ -75,7 +80,7 @@ func (smg *TemplatedSystemMessageGenerator) GenerateSystemMessage(ctx string) (s
 	return writer.String(), nil
 }
 
-func (smg *TemplatedSystemMessageGenerator) createBuiltinSystemMessageFromContext(ctx string) string {
+func CreateBuiltinSystemMessageFromContext(ctx string) string {
 	var systemMessage strings.Builder
 
 	systemMessage.WriteString("You are a helpful coding assistant. ")

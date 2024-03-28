@@ -2,33 +2,69 @@ package internal_test
 
 import (
 	"errors"
-	"github.com/intility/cwc/internal"
-	"github.com/intility/cwc/internal/mocks"
+	"testing"
+
 	"github.com/sashabaranov/go-openai"
 	"github.com/stretchr/testify/assert"
-	"testing"
+
+	"github.com/intility/cwc/internal"
+	"github.com/intility/cwc/mocks"
 )
 
 func TestNewClientFromConfig(t *testing.T) {
-	mockConfigProvider := &mocks.ConfigProvider{}
-	testClientConfig := openai.ClientConfig{BaseURL: "http://test"}
-	mockConfigProvider.On("NewFromConfigFile").Return(testClientConfig, nil)
 
-	clientProvider := internal.NewOpenAIClientProvider(mockConfigProvider)
-	client, err := clientProvider.NewClientFromConfig()
+	// Define the test cases
+	type testConfig struct {
+		cfgProvider  *mocks.ConfigProvider
+		clientConfig openai.ClientConfig
+	}
 
-	mockConfigProvider.AssertExpectations(t)
-	assert.NoError(t, err)
-	assert.NotNil(t, client)
-}
+	tests := []struct {
+		name       string
+		setupMocks func(testConfig)
+		wantResult func(t *testing.T, result *openai.Client)
+		wantErr    func(t *testing.T, err error)
+	}{
+		{
+			name: "success",
+			setupMocks: func(m testConfig) {
+				m.cfgProvider.On("NewFromConfigFile").Return(m.clientConfig, nil)
+			},
+			wantResult: func(t *testing.T, result *openai.Client) {
+				assert.NotNil(t, result)
+			},
+			wantErr: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name: "error loading config",
+			setupMocks: func(m testConfig) {
+				m.cfgProvider.On("NewFromConfigFile").
+					Return(openai.ClientConfig{}, errors.New("error reading config"))
+			},
+			wantResult: func(t *testing.T, result *openai.Client) {
+				assert.Nil(t, result)
+			},
+			wantErr: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
+		},
+	}
 
-func TestNewClientFromConfigError(t *testing.T) {
-	mockConfigProvider := &mocks.ConfigProvider{}
-	mockConfigProvider.On("NewFromConfigFile").Return(openai.ClientConfig{}, errors.New("error reading config"))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockConfigProvider := &mocks.ConfigProvider{}
+			cfg := testConfig{cfgProvider: mockConfigProvider, clientConfig: openai.ClientConfig{}}
+			tt.setupMocks(cfg)
 
-	clientProvider := internal.NewOpenAIClientProvider(mockConfigProvider)
-	_, err := clientProvider.NewClientFromConfig()
+			clientProvider := internal.NewOpenAIClientProvider(mockConfigProvider)
+			res, err := clientProvider.NewClientFromConfig()
 
-	mockConfigProvider.AssertExpectations(t)
-	assert.Error(t, err)
+			mockConfigProvider.AssertExpectations(t)
+			tt.wantResult(t, res)
+			tt.wantErr(t, err)
+		})
+
+	}
 }
