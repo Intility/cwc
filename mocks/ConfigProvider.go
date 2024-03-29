@@ -4,7 +4,6 @@ package mocks
 
 import (
 	config "github.com/intility/cwc/pkg/config"
-
 	mock "github.com/stretchr/testify/mock"
 
 	openai "github.com/sashabaranov/go-openai"

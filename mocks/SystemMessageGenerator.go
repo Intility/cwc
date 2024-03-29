@@ -17,9 +17,9 @@ func (_m *SystemMessageGenerator) EXPECT() *SystemMessageGenerator_Expecter {
 	return &SystemMessageGenerator_Expecter{mock: &_m.Mock}
 }
 
-// GenerateSystemMessage provides a mock function with given fields: ctx
-func (_m *SystemMessageGenerator) GenerateSystemMessage(ctx string) (string, error) {
-	ret := _m.Called(ctx)
+// GenerateSystemMessage provides a mock function with given fields:
+func (_m *SystemMessageGenerator) GenerateSystemMessage() (string, error) {
+	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GenerateSystemMessage")
@@ -27,17 +27,17 @@ func (_m *SystemMessageGenerator) GenerateSystemMessage(ctx string) (string, err
 
 	var r0 string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (string, error)); ok {
-		return rf(ctx)
+	if rf, ok := ret.Get(0).(func() (string, error)); ok {
+		return rf()
 	}
-	if rf, ok := ret.Get(0).(func(string) string); ok {
-		r0 = rf(ctx)
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(ctx)
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -51,14 +51,13 @@ type SystemMessageGenerator_GenerateSystemMessage_Call struct {
 }
 
 // GenerateSystemMessage is a helper method to define mock.On call
-//   - ctx string
-func (_e *SystemMessageGenerator_Expecter) GenerateSystemMessage(ctx interface{}) *SystemMessageGenerator_GenerateSystemMessage_Call {
-	return &SystemMessageGenerator_GenerateSystemMessage_Call{Call: _e.mock.On("GenerateSystemMessage", ctx)}
+func (_e *SystemMessageGenerator_Expecter) GenerateSystemMessage() *SystemMessageGenerator_GenerateSystemMessage_Call {
+	return &SystemMessageGenerator_GenerateSystemMessage_Call{Call: _e.mock.On("GenerateSystemMessage")}
 }
 
-func (_c *SystemMessageGenerator_GenerateSystemMessage_Call) Run(run func(ctx string)) *SystemMessageGenerator_GenerateSystemMessage_Call {
+func (_c *SystemMessageGenerator_GenerateSystemMessage_Call) Run(run func()) *SystemMessageGenerator_GenerateSystemMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string))
+		run()
 	})
 	return _c
 }
@@ -68,7 +67,7 @@ func (_c *SystemMessageGenerator_GenerateSystemMessage_Call) Return(_a0 string, 
 	return _c
 }
 
-func (_c *SystemMessageGenerator_GenerateSystemMessage_Call) RunAndReturn(run func(string) (string, error)) *SystemMessageGenerator_GenerateSystemMessage_Call {
+func (_c *SystemMessageGenerator_GenerateSystemMessage_Call) RunAndReturn(run func() (string, error)) *SystemMessageGenerator_GenerateSystemMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }

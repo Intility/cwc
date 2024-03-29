@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/intility/cwc/pkg/config"
 
 	"github.com/sashabaranov/go-openai"
 )
@@ -11,10 +12,10 @@ type ClientProvider interface {
 }
 
 type OpenAIClientProvider struct {
-	cfg ConfigProvider
+	cfg config.ConfigProvider
 }
 
-func NewOpenAIClientProvider(provider ConfigProvider) *OpenAIClientProvider {
+func NewOpenAIClientProvider(provider config.ConfigProvider) *OpenAIClientProvider {
 	return &OpenAIClientProvider{cfg: provider}
 }
 

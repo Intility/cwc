@@ -2,9 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"io"
-	"os"
-
 	"github.com/intility/cwc/pkg/chat"
 	"github.com/intility/cwc/pkg/errors"
 	"github.com/intility/cwc/pkg/ui"
@@ -34,12 +31,7 @@ func (c *NonInteractiveCmd) Run() error {
 		return fmt.Errorf("error creating openaiClient: %w", err)
 	}
 
-	systemCtx, err := c.readContextFromStdIn()
-	if err != nil {
-		return fmt.Errorf("error reading context from stdin: %w", err)
-	}
-
-	generateSystemMessage, err := c.smGenerator.GenerateSystemMessage(systemCtx)
+	generateSystemMessage, err := c.smGenerator.GenerateSystemMessage()
 	if err != nil {
 		return fmt.Errorf("error creating system message: %w", err)
 	}
@@ -56,15 +48,6 @@ func (c *NonInteractiveCmd) Run() error {
 	conversation.WaitMyTurn()
 
 	return nil
-}
-
-func (c *NonInteractiveCmd) readContextFromStdIn() (string, error) {
-	inputBytes, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return "", fmt.Errorf("error reading from stdin: %w", err)
-	}
-
-	return string(inputBytes), nil
 }
 
 func (c *NonInteractiveCmd) printChunk(chunk *chat.ConversationChunk) {

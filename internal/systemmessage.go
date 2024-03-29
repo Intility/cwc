@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/intility/cwc/pkg/systemcontext"
 	"github.com/intility/cwc/pkg/templates"
 	"strings"
 	tt "text/template"
@@ -10,28 +11,36 @@ import (
 )
 
 type SystemMessageGenerator interface {
-	GenerateSystemMessage(ctx string) (string, error)
+	GenerateSystemMessage() (string, error)
 }
 
 type TemplatedSystemMessageGenerator struct {
-	templateLocator templates.TemplateLocator
-	templateName    string
-	templateVars    map[string]string
+	templateLocator  templates.TemplateLocator
+	templateName     string
+	templateVars     map[string]string
+	contextRetriever systemcontext.ContextRetriever
 }
 
 func NewTemplatedSystemMessageGenerator(
 	templateLocator templates.TemplateLocator,
 	templateName string,
 	templateVars map[string]string,
+	contextRetriever systemcontext.ContextRetriever,
 ) *TemplatedSystemMessageGenerator {
 	return &TemplatedSystemMessageGenerator{
-		templateLocator: templateLocator,
-		templateName:    templateName,
-		templateVars:    templateVars,
+		templateLocator:  templateLocator,
+		templateName:     templateName,
+		templateVars:     templateVars,
+		contextRetriever: contextRetriever,
 	}
 }
 
-func (smg *TemplatedSystemMessageGenerator) GenerateSystemMessage(ctx string) (string, error) {
+func (smg *TemplatedSystemMessageGenerator) GenerateSystemMessage() (string, error) {
+	ctx, err := smg.contextRetriever.RetrieveContext()
+	if err != nil {
+		return "", fmt.Errorf("error retrieving context: %w", err)
+	}
+
 	tmpl, err := smg.templateLocator.GetTemplate(smg.templateName)
 
 	if smg.templateVars == nil {

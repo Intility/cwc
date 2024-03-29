@@ -2,7 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/intility/cwc/pkg/config"
+	"github.com/intility/cwc/pkg/filetree"
+	"github.com/intility/cwc/pkg/systemcontext"
 	"github.com/intility/cwc/pkg/templates"
+	"github.com/intility/cwc/pkg/ui"
 	"github.com/spf13/cobra"
 	"os"
 	"path/filepath"
@@ -11,7 +15,8 @@ import (
 )
 
 const (
-	longDescription = `The 'cwc' command initiates a new chat session, 
+	warnFileSizeThreshold = 100000
+	longDescription       = `The 'cwc' command initiates a new chat session, 
 providing granular control over the inclusion and exclusion of files via regular expression patterns. 
 It allows for specification of paths to include or exclude files from the chat context.
 
@@ -60,13 +65,24 @@ func CreateRootCommand() *cobra.Command {
 		Long:  longDescription,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			deps := createDefaultDeps(args, chatOpts.TemplateName, chatOpts.TemplateVariables)
+			cfgProvider := config.NewDefaultProvider()
+			clientProvider := internal.NewOpenAIClientProvider(cfgProvider)
+			templateLocator := getTemplateLocator(cfgProvider)
+			promptResolver := internal.NewArgsOrTemplatePromptResolver(templateLocator, args, chatOpts.TemplateName)
 
 			if isPiped(os.Stdin) {
+				contextRetriever := systemcontext.NewIOReaderContextRetriever(os.Stdin)
+				smGenerator := internal.NewTemplatedSystemMessageGenerator(
+					templateLocator,
+					chatOpts.TemplateName,
+					chatOpts.TemplateVariables,
+					contextRetriever,
+				)
+
 				nic := internal.NewNonInteractiveCmd(
-					deps.clientProvider,
-					deps.promptResolver,
-					deps.systemMessageGenerator,
+					clientProvider,
+					promptResolver,
+					smGenerator,
 				)
 
 				err := nic.Run()
@@ -77,10 +93,24 @@ func CreateRootCommand() *cobra.Command {
 				return nil
 			}
 
+			contextRetriever := systemcontext.NewFileContextRetriever(
+				cfgProvider,
+				chatOpts.IncludePattern,
+				chatOpts.ExcludePattern,
+				chatOpts.Paths,
+				printContext)
+
+			smGenerator := internal.NewTemplatedSystemMessageGenerator(
+				templateLocator,
+				chatOpts.TemplateName,
+				chatOpts.TemplateVariables,
+				contextRetriever,
+			)
+
 			interactiveCmd := internal.NewInteractiveCmd(
-				deps.promptResolver,
-				deps.clientProvider,
-				deps.systemMessageGenerator,
+				promptResolver,
+				clientProvider,
+				smGenerator,
 				chatOpts,
 			)
 
@@ -103,35 +133,52 @@ func CreateRootCommand() *cobra.Command {
 	return rootCmd
 }
 
+func printContext(fileTree string, files []filetree.File) {
+	ui.PrintMessage(fileTree, ui.MessageTypeInfo)
+	for _, file := range files {
+		printLargeFileWarning(file)
+	}
+}
+
+func printLargeFileWarning(file filetree.File) {
+	if len(file.Data) > warnFileSizeThreshold {
+		largeFileMsg := fmt.Sprintf(
+			"warning: %s is very large (%d bytes) and will degrade performance.\n",
+			file.Path, len(file.Data))
+
+		ui.PrintMessage(largeFileMsg, ui.MessageTypeWarning)
+	}
+}
+
 type defaultDeps struct {
-	configProvider         internal.ConfigProvider
+	configProvider         config.ConfigProvider
 	clientProvider         internal.ClientProvider
 	templateLocator        templates.TemplateLocator
 	promptResolver         internal.PromptResolver
 	systemMessageGenerator internal.SystemMessageGenerator
 }
 
-func createDefaultDeps(args []string, templateName string, templateVars map[string]string) *defaultDeps {
-	cfgProvider := internal.NewDefaultProvider()
-	clientProvider := internal.NewOpenAIClientProvider(cfgProvider)
-	templateLocator := getTemplateLocator(cfgProvider)
-	promptResolver := internal.NewArgsOrTemplatePromptResolver(templateLocator, args, templateName)
-	systemMessageGenerator := internal.NewTemplatedSystemMessageGenerator(
-		templateLocator,
-		templateName,
-		templateVars,
-	)
+//func createDefaultDeps(args []string, templateName string, templateVars map[string]string) *defaultDeps {
+//	cfgProvider := internal.NewDefaultProvider()
+//	clientProvider := internal.NewOpenAIClientProvider(cfgProvider)
+//	templateLocator := getTemplateLocator(cfgProvider)
+//	promptResolver := internal.NewArgsOrTemplatePromptResolver(templateLocator, args, templateName)
+//	systemMessageGenerator := internal.NewTemplatedSystemMessageGenerator(
+//		templateLocator,
+//		templateName,
+//		templateVars,
+//	)
+//
+//	return &defaultDeps{
+//		configProvider:         cfgProvider,
+//		clientProvider:         clientProvider,
+//		templateLocator:        templateLocator,
+//		promptResolver:         promptResolver,
+//		systemMessageGenerator: systemMessageGenerator,
+//	}
+//}
 
-	return &defaultDeps{
-		configProvider:         cfgProvider,
-		clientProvider:         clientProvider,
-		templateLocator:        templateLocator,
-		promptResolver:         promptResolver,
-		systemMessageGenerator: systemMessageGenerator,
-	}
-}
-
-func getTemplateLocator(cfgProvider internal.ConfigProvider) templates.TemplateLocator {
+func getTemplateLocator(cfgProvider config.ConfigProvider) templates.TemplateLocator {
 	var locators []templates.TemplateLocator
 
 	configDir, err := cfgProvider.GetConfigDir()

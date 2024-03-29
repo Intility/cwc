@@ -1,15 +1,12 @@
-package internal
+package config
 
 import (
 	"fmt"
-
 	"github.com/sashabaranov/go-openai"
-
-	"github.com/intility/cwc/pkg/config"
 )
 
 type ConfigProvider interface {
-	LoadConfig() (*config.Config, error)
+	LoadConfig() (*Config, error)
 	NewFromConfigFile() (openai.ClientConfig, error)
 	GetConfigDir() (string, error)
 }
@@ -20,8 +17,8 @@ func NewDefaultProvider() *DefaultProvider {
 	return &DefaultProvider{}
 }
 
-func (c *DefaultProvider) LoadConfig() (*config.Config, error) {
-	cfg, err := config.LoadConfig()
+func (c *DefaultProvider) LoadConfig() (*Config, error) {
+	cfg, err := LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("error loading config: %w", err)
 	}
@@ -30,7 +27,7 @@ func (c *DefaultProvider) LoadConfig() (*config.Config, error) {
 }
 
 func (c *DefaultProvider) NewFromConfigFile() (openai.ClientConfig, error) {
-	cfg, err := config.NewFromConfigFile()
+	cfg, err := NewFromConfigFile()
 	if err != nil {
 		return openai.ClientConfig{}, fmt.Errorf("error reading config: %w", err)
 	}
@@ -39,7 +36,7 @@ func (c *DefaultProvider) NewFromConfigFile() (openai.ClientConfig, error) {
 }
 
 func (c *DefaultProvider) GetConfigDir() (string, error) {
-	cfgDir, err := config.GetConfigDir()
+	cfgDir, err := GetConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("error getting config dir: %w", err)
 	}
