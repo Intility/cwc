@@ -75,12 +75,16 @@ func (fs *KeyringAPIKeyStorage) GetAPIKey() (string, error) {
 }
 
 func (fs *FileAPIKeyStorage) StoreAPIKey(key string) error {
-	var readWrite os.FileMode = 0o600
-	if err := os.MkdirAll(filepath.Dir(fs.Filepath), readWrite); err != nil {
+	var (
+		dirFileMode os.FileMode = 0o700
+		keyFileMode os.FileMode = 0o600
+	)
+
+	if err := os.MkdirAll(filepath.Dir(fs.Filepath), dirFileMode); err != nil {
 		return fmt.Errorf("error creating directories for file storage: %w", err)
 	}
 
-	err := os.WriteFile(fs.Filepath, []byte(key), readWrite)
+	err := os.WriteFile(fs.Filepath, []byte(key), keyFileMode)
 	if err != nil {
 		return fmt.Errorf("error storing API key in file: %w", err)
 	}
