@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/intility/cwc/pkg/errors"
 	"github.com/sashabaranov/go-openai"
 	"gopkg.in/yaml.v3"
+
+	"github.com/intility/cwc/pkg/errors"
 )
 
 const (
@@ -99,6 +100,8 @@ func ValidateConfig(cfg *Config) error {
 // SaveConfig writes the configuration to disk, and the API key to the keyring.
 func SaveConfig(config *Config) error {
 	// validate the configuration
+	apiKeyStorage := ResolveAPIKeyStorage()
+
 	err := ValidateConfig(config)
 	if err != nil {
 		return err
@@ -115,11 +118,11 @@ func SaveConfig(config *Config) error {
 	if err != nil {
 		return fmt.Errorf("error marshalling config data: %w", err)
 	}
-	apiKeyStorage := ResolveAPIKeyStorage()
+
 	err = apiKeyStorage.StoreAPIKey(config.APIKey())
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to store api key %w", err)
 	}
 
 	err = os.WriteFile(configFilePath, data, configFilePermissions)
@@ -132,6 +135,8 @@ func SaveConfig(config *Config) error {
 
 // LoadConfig reads the configuration from disk and loads the API key from the keyring.
 func LoadConfig() (*Config, error) {
+	apiKeyStorage := ResolveAPIKeyStorage()
+
 	// Read data from file or secure store
 	configDir, err := xdgConfigPath()
 	if err != nil {
@@ -158,7 +163,7 @@ func LoadConfig() (*Config, error) {
 			"please run `cwc login` to create a new config file.",
 		}}
 	}
-	apiKeyStorage := ResolveAPIKeyStorage()
+
 	apiKey, err := apiKeyStorage.GetAPIKey()
 	if err != nil {
 		return nil, errors.ConfigValidationError{Errors: []string{
@@ -173,6 +178,8 @@ func LoadConfig() (*Config, error) {
 }
 
 func ClearConfig() error {
+	apiKeyStorage := ResolveAPIKeyStorage()
+
 	configDir, err := xdgConfigPath()
 	if err != nil {
 		return err
@@ -184,10 +191,10 @@ func ClearConfig() error {
 	if err != nil {
 		return fmt.Errorf("error removing config file: %w", err)
 	}
-	apiKeyStorage := ResolveAPIKeyStorage()
+
 	err = apiKeyStorage.ClearAPIKey()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to clear api key: %w", err)
 	}
 
 	return nil
