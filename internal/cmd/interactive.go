@@ -8,7 +8,7 @@ import (
 	"github.com/intility/cwc/pkg/chat"
 	"github.com/intility/cwc/pkg/filetree"
 	"github.com/intility/cwc/pkg/pathmatcher"
-	"github.com/intility/cwc/pkg/ui"
+	cwcui "github.com/intility/cwc/pkg/ui"
 )
 
 type InteractiveChatOptions struct {
@@ -22,11 +22,14 @@ type InteractiveChatOptions struct {
 type InteractiveCmd struct {
 	prompt      string
 	chatOptions InteractiveChatOptions
+	ui          cwcui.UI
 }
 
 func NewInteractiveCmd(args []string, chatOptions InteractiveChatOptions) *InteractiveCmd {
 	prompt := determinePrompt(args, chatOptions.TemplateName)
-	return &InteractiveCmd{prompt: prompt, chatOptions: chatOptions}
+	ui := cwcui.NewUI()
+
+	return &InteractiveCmd{prompt: prompt, chatOptions: chatOptions, ui: ui}
 }
 
 func (c *InteractiveCmd) Run() error {
@@ -39,7 +42,7 @@ func (c *InteractiveCmd) Run() error {
 	if err != nil {
 		return err
 	} else if len(files) == 0 { // No files found, terminating or confirming to proceed
-		if !askConfirmation("No files found matching the given criteria.\n", ui.MessageTypeWarning) {
+		if !askConfirmation("No files found matching the given criteria.\n", cwcui.MessageTypeWarning) {
 			return nil
 		}
 	}
@@ -51,13 +54,13 @@ func (c *InteractiveCmd) Run() error {
 		return fmt.Errorf("error creating system message: %w", err)
 	}
 
-	ui.PrintMessage("Type '/exit' to end the chat.\n", ui.MessageTypeNotice)
+	c.ui.PrintMessage("Type '/exit' to end the chat.\n", cwcui.MessageTypeNotice)
 
 	if c.prompt == "" {
-		ui.PrintMessage("👤: ", ui.MessageTypeInfo)
-		c.prompt = ui.ReadUserInput()
+		c.ui.PrintMessage("👤: ", cwcui.MessageTypeInfo)
+		c.prompt = c.ui.ReadUserInput()
 	} else {
-		ui.PrintMessage(fmt.Sprintf("👤: %s\n", c.prompt), ui.MessageTypeInfo)
+		c.ui.PrintMessage(fmt.Sprintf("👤: %s\n", c.prompt), cwcui.MessageTypeInfo)
 	}
 
 	if c.prompt == "/exit" {
@@ -75,9 +78,9 @@ func (c *InteractiveCmd) handleChat(client *openai.Client, systemMessage string,
 
 	for {
 		conversation.WaitMyTurn()
-		ui.PrintMessage("👤: ", ui.MessageTypeInfo)
+		c.ui.PrintMessage("👤: ", cwcui.MessageTypeInfo)
 
-		userMessage := ui.ReadUserInput()
+		userMessage := c.ui.ReadUserInput()
 
 		if userMessage == "/exit" {
 			break
@@ -89,23 +92,25 @@ func (c *InteractiveCmd) handleChat(client *openai.Client, systemMessage string,
 
 func (c *InteractiveCmd) printMessageChunk(chunk *chat.ConversationChunk) {
 	if chunk.IsInitialChunk {
-		ui.PrintMessage("🤖: ", ui.MessageTypeInfo)
+		c.ui.PrintMessage("🤖: ", cwcui.MessageTypeInfo)
 		return
 	}
 
 	if chunk.IsErrorChunk {
-		ui.PrintMessage(chunk.Content, ui.MessageTypeError)
+		c.ui.PrintMessage(chunk.Content, cwcui.MessageTypeError)
 	}
 
 	if chunk.IsFinalChunk {
-		ui.PrintMessage("\n", ui.MessageTypeInfo)
+		c.ui.PrintMessage("\n", cwcui.MessageTypeInfo)
 	}
 
-	ui.PrintMessage(chunk.Content, ui.MessageTypeInfo)
+	c.ui.PrintMessage(chunk.Content, cwcui.MessageTypeInfo)
 }
 
 func (c *InteractiveCmd) gatherAndPrintContext() ([]filetree.File, string, error) {
 	// gatherAndPrintContext gathers file context based on provided options and prints it out.
+	ui := cwcui.NewUI() //nolint:varnamelen
+
 	files, rootNode, err := c.gatherContext()
 	if err != nil {
 		return nil, "", err
@@ -117,8 +122,8 @@ func (c *InteractiveCmd) gatherAndPrintContext() ([]filetree.File, string, error
 
 	fileTree := filetree.GenerateFileTree(rootNode, "", true)
 
-	ui.PrintMessage("The following files will be used as context:\n", ui.MessageTypeInfo)
-	ui.PrintMessage(fileTree, ui.MessageTypeInfo)
+	ui.PrintMessage("The following files will be used as context:\n", cwcui.MessageTypeInfo)
+	ui.PrintMessage(fileTree, cwcui.MessageTypeInfo)
 
 	return files, fileTree, nil
 }

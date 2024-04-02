@@ -14,7 +14,7 @@ import (
 	"github.com/intility/cwc/pkg/filetree"
 	"github.com/intility/cwc/pkg/pathmatcher"
 	"github.com/intility/cwc/pkg/templates"
-	"github.com/intility/cwc/pkg/ui"
+	cwcui "github.com/intility/cwc/pkg/ui"
 )
 
 const (
@@ -141,11 +141,12 @@ func createBuiltinSystemMessageFromContext(context string) string {
 }
 
 // askConfirmation prompts the user if they want to proceed with no files.
-func askConfirmation(prompt string, messageType ui.MessageType) bool {
+func askConfirmation(prompt string, messageType cwcui.MessageType) bool {
+	ui := cwcui.NewUI()
 	ui.PrintMessage(prompt, messageType)
 
 	if !ui.AskYesNo("Do you wish to proceed?", false) {
-		ui.PrintMessage("See ya later!", ui.MessageTypeInfo)
+		ui.PrintMessage("See ya later!", cwcui.MessageTypeInfo)
 		return false
 	}
 
@@ -154,6 +155,8 @@ func askConfirmation(prompt string, messageType ui.MessageType) bool {
 
 func excludeMatchersFromConfig() ([]pathmatcher.PathMatcher, error) {
 	var excludeMatchers []pathmatcher.PathMatcher
+
+	ui := cwcui.NewUI() //nolint:varnamelen
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -164,7 +167,7 @@ func excludeMatchersFromConfig() ([]pathmatcher.PathMatcher, error) {
 		gitignoreMatcher, err := pathmatcher.NewGitignorePathMatcher()
 		if err != nil {
 			if errors.IsGitNotInstalledError(err) {
-				ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", ui.MessageTypeWarning)
+				ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", cwcui.MessageTypeWarning)
 			} else {
 				return nil, fmt.Errorf("error creating gitignore matcher: %w", err)
 			}
@@ -186,12 +189,13 @@ func excludeMatchersFromConfig() ([]pathmatcher.PathMatcher, error) {
 }
 
 func printLargeFileWarning(file filetree.File) {
+	ui := cwcui.NewUI() //nolint:varnamelen
 	if len(file.Data) > warnFileSizeThreshold {
 		largeFileMsg := fmt.Sprintf(
 			"warning: %s is very large (%d bytes) and will degrade performance.\n",
 			file.Path, len(file.Data))
 
-		ui.PrintMessage(largeFileMsg, ui.MessageTypeWarning)
+		ui.PrintMessage(largeFileMsg, cwcui.MessageTypeWarning)
 	}
 }
 

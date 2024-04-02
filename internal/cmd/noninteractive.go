@@ -6,18 +6,21 @@ import (
 	"os"
 
 	"github.com/intility/cwc/pkg/chat"
-	"github.com/intility/cwc/pkg/ui"
+	cwcui "github.com/intility/cwc/pkg/ui"
 )
 
 type NonInteractiveCmd struct {
 	prompt       string
 	templateName string
 	templateVars map[string]string
+	ui           cwcui.UI
 }
 
 func NewNonInteractiveCmd(args []string, templateName string, templateVars map[string]string) *NonInteractiveCmd {
 	prompt := determinePrompt(args, templateName)
-	return &NonInteractiveCmd{prompt: prompt, templateName: templateName, templateVars: templateVars}
+	ui := cwcui.NewUI()
+
+	return &NonInteractiveCmd{prompt: prompt, templateName: templateName, templateVars: templateVars, ui: ui}
 }
 
 func (c *NonInteractiveCmd) Run() error {
@@ -54,5 +57,5 @@ func (c *NonInteractiveCmd) readContextFromStdIn() (string, error) {
 }
 
 func (c *NonInteractiveCmd) printChunk(chunk *chat.ConversationChunk) {
-	ui.PrintMessage(chunk.Content, ui.MessageTypeInfo)
+	c.ui.PrintMessage(chunk.Content, cwcui.MessageTypeInfo)
 }

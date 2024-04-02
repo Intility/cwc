@@ -10,7 +10,7 @@ import (
 
 	"github.com/intility/cwc/pkg/config"
 	"github.com/intility/cwc/pkg/errors"
-	"github.com/intility/cwc/pkg/ui"
+	cwcui "github.com/intility/cwc/pkg/ui"
 )
 
 func createConfigCommand() *cobra.Command {
@@ -124,6 +124,8 @@ func processKeyValuePairs(cfg *config.Config, kvPairs []string) error {
 }
 
 func setConfigValue(cfg *config.Config, key, value string) error {
+	ui := cwcui.NewUI() //nolint:varnamelen
+
 	switch key {
 	case "endpoint":
 		cfg.Endpoint = value
@@ -146,7 +148,7 @@ func setConfigValue(cfg *config.Config, key, value string) error {
 
 		cfg.ExcludeGitDir = b
 	default:
-		ui.PrintMessage(fmt.Sprintf("Unknown config key: %s\n", key), ui.MessageTypeError)
+		ui.PrintMessage(fmt.Sprintf("Unknown config key: %s\n", key), cwcui.MessageTypeError)
 
 		validKeys := []string{
 			"endpoint",
@@ -156,7 +158,7 @@ func setConfigValue(cfg *config.Config, key, value string) error {
 			"excludeGitDir",
 		}
 
-		ui.PrintMessage("Valid keys are: "+strings.Join(validKeys, ", "), ui.MessageTypeInfo)
+		ui.PrintMessage("Valid keys are: "+strings.Join(validKeys, ", "), cwcui.MessageTypeInfo)
 
 		return errors.SuppressedError{}
 	}
@@ -179,6 +181,7 @@ func printConfig(cfg *config.Config) {
 }
 
 func printTable(table [][]string) {
+	ui := cwcui.NewUI() //nolint:varnamelen
 	columnLengths := calculateColumnLengths(table)
 
 	var lineLength int
@@ -194,26 +197,26 @@ func printTable(table [][]string) {
 	for lineIndex, line := range table {
 		if lineIndex == 0 { // table header
 			// lineLength-2 because of "+" as first and last charactr
-			ui.PrintMessage(fmt.Sprintf("+%s+\n", strings.Repeat("-", singleLineLength)), ui.MessageTypeInfo)
+			ui.PrintMessage(fmt.Sprintf("+%s+\n", strings.Repeat("-", singleLineLength)), cwcui.MessageTypeInfo)
 		}
 
 	lineLoop:
 		for rowIndex, val := range line {
 			if val == "SEP" {
 				// lineLength-2 because of "+" as first and last character
-				ui.PrintMessage(fmt.Sprintf("+%s+\n", strings.Repeat("-", singleLineLength)), ui.MessageTypeInfo)
+				ui.PrintMessage(fmt.Sprintf("+%s+\n", strings.Repeat("-", singleLineLength)), cwcui.MessageTypeInfo)
 				break lineLoop
 			}
 
-			ui.PrintMessage(fmt.Sprintf("| %-*s ", columnLengths[rowIndex], val), ui.MessageTypeInfo)
+			ui.PrintMessage(fmt.Sprintf("| %-*s ", columnLengths[rowIndex], val), cwcui.MessageTypeInfo)
 			if rowIndex == len(line)-1 {
-				ui.PrintMessage("|\n", ui.MessageTypeInfo)
+				ui.PrintMessage("|\n", cwcui.MessageTypeInfo)
 			}
 		}
 
 		if lineIndex == 0 || lineIndex == len(table)-1 { // table header or last line
 			// lineLength-2 because of "+" as first and last character
-			ui.PrintMessage(fmt.Sprintf("+%s+\n", strings.Repeat("-", singleLineLength)), ui.MessageTypeInfo)
+			ui.PrintMessage(fmt.Sprintf("+%s+\n", strings.Repeat("-", singleLineLength)), cwcui.MessageTypeInfo)
 		}
 	}
 }
