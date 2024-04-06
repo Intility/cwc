@@ -41,7 +41,6 @@ func (g *GitignorePathMatcher) gitLsFiles() error {
 	cmd.Stderr = errBuf
 
 	err := cmd.Run()
-
 	if err != nil {
 		errStr := errBuf.String()
 
