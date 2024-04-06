@@ -15,7 +15,8 @@ func createLogoutCmd() *cobra.Command {
 		Long: `Logout will clear the configuration and remove the stored API key.
 This will require you to login again to use the chat with context tool.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.ClearConfig()
+			provider := config.NewDefaultProvider()
+			err := provider.ClearConfig()
 			if err != nil {
 				return fmt.Errorf("error clearing configuration: %w", err)
 			}

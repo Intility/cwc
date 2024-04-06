@@ -43,7 +43,8 @@ func createLoginCmd() *cobra.Command {
 			cfg := config.NewConfig(endpointFlag, modelDeploymentFlag)
 			cfg.SetAPIKey(apiKeyFlag)
 
-			err := config.SaveConfig(cfg)
+			provider := config.NewDefaultProvider()
+			err := provider.SaveConfig(cfg)
 			if err != nil {
 				if validationErr, ok := errors.AsConfigValidationError(err); ok {
 					for _, e := range validationErr.Errors {

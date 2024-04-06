@@ -1,12 +1,12 @@
-package internal_test
+package prompting_test
 
 import (
 	stdErrors "errors"
+	"github.com/intility/cwc/pkg/prompting"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/intility/cwc/internal"
 	"github.com/intility/cwc/mocks"
 	"github.com/intility/cwc/pkg/templates"
 )
@@ -68,7 +68,7 @@ func TestArgsOrTemplatePromptResolver_ResolvePrompt(t *testing.T) {
 			cfg := testConfig{locator: locator, testTemplate: &templates.Template{}}
 			tt.setupMocks(cfg)
 
-			resolver := internal.NewArgsOrTemplatePromptResolver(locator, tt.args, tt.templateName)
+			resolver := prompting.NewArgsOrTemplatePromptResolver(locator, tt.args, tt.templateName)
 			prompt := resolver.ResolvePrompt()
 
 			locator.AssertExpectations(t)

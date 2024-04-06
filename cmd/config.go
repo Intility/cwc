@@ -41,7 +41,8 @@ func createGetConfigCommand() *cobra.Command {
 		Long:  "Print current config",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.LoadConfig()
+			provider := config.NewDefaultProvider()
+			cfg, err := provider.GetConfig()
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
@@ -61,7 +62,8 @@ func createSetConfigCommand() *cobra.Command {
 		Short: "Set config variables",
 		Long:  "Set config variables",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.LoadConfig()
+			cfgProvider := config.NewDefaultProvider()
+			cfg, err := cfgProvider.GetConfig()
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
@@ -113,7 +115,9 @@ func processKeyValuePairs(cfg *config.Config, kvPairs []string) error {
 		}
 	}
 
-	err := config.SaveConfig(cfg)
+	provider := config.NewDefaultProvider()
+
+	err := provider.SaveConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}

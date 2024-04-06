@@ -1,11 +1,11 @@
-package internal_test
+package systemcontext_test
 
 import (
+	"github.com/intility/cwc/pkg/systemcontext"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/intility/cwc/internal"
 	"github.com/intility/cwc/mocks"
 	"github.com/intility/cwc/pkg/errors"
 	"github.com/intility/cwc/pkg/templates"
@@ -33,7 +33,7 @@ func TestTemplatedSystemMessageGenerator_GenerateSystemMessage(t *testing.T) {
 					Return(nil, errors.TemplateNotFoundError{})
 			},
 			wantResult: func(t *testing.T, result string) {
-				builtInMessage := internal.CreateBuiltinSystemMessageFromContext("test_context")
+				builtInMessage := systemcontext.CreateBuiltinSystemMessageFromContext("test_context")
 				assert.Equal(t, builtInMessage, result)
 			},
 			wantErr: func(t *testing.T, err error) {
@@ -125,7 +125,7 @@ func TestTemplatedSystemMessageGenerator_GenerateSystemMessage(t *testing.T) {
 
 			tt.setupMocks(cfg)
 
-			smg := internal.NewTemplatedSystemMessageGenerator(
+			smg := systemcontext.NewTemplatedSystemMessageGenerator(
 				locator,
 				"test",
 				cfg.templateVars,

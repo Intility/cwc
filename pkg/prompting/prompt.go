@@ -1,4 +1,4 @@
-package internal
+package prompting
 
 import "github.com/intility/cwc/pkg/templates"
 

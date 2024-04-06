@@ -2,16 +2,18 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/intility/cwc/pkg/config"
-	"github.com/intility/cwc/pkg/filetree"
-	"github.com/intility/cwc/pkg/systemcontext"
-	"github.com/intility/cwc/pkg/templates"
-	"github.com/intility/cwc/pkg/ui"
-	"github.com/spf13/cobra"
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+
 	"github.com/intility/cwc/internal"
+	"github.com/intility/cwc/pkg/config"
+	"github.com/intility/cwc/pkg/filetree"
+	"github.com/intility/cwc/pkg/prompting"
+	"github.com/intility/cwc/pkg/systemcontext"
+	"github.com/intility/cwc/pkg/templates"
+	"github.com/intility/cwc/pkg/ui"
 )
 
 const (
@@ -65,25 +67,8 @@ func CreateRootCommand() *cobra.Command {
 		Long:  longDescription,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			cfgProvider := config.NewDefaultProvider()
-			clientProvider := internal.NewOpenAIClientProvider(cfgProvider)
-			templateLocator := getTemplateLocator(cfgProvider)
-			promptResolver := internal.NewArgsOrTemplatePromptResolver(templateLocator, args, chatOpts.TemplateName)
-
 			if isPiped(os.Stdin) {
-				contextRetriever := systemcontext.NewIOReaderContextRetriever(os.Stdin)
-				smGenerator := internal.NewTemplatedSystemMessageGenerator(
-					templateLocator,
-					chatOpts.TemplateName,
-					chatOpts.TemplateVariables,
-					contextRetriever,
-				)
-
-				nic := internal.NewNonInteractiveCmd(
-					clientProvider,
-					promptResolver,
-					smGenerator,
-				)
+				nic := createNonInteractiveCommand(args, chatOpts.TemplateName, chatOpts.TemplateVariables)
 
 				err := nic.Run()
 				if err != nil {
@@ -93,26 +78,7 @@ func CreateRootCommand() *cobra.Command {
 				return nil
 			}
 
-			contextRetriever := systemcontext.NewFileContextRetriever(
-				cfgProvider,
-				chatOpts.IncludePattern,
-				chatOpts.ExcludePattern,
-				chatOpts.Paths,
-				printContext)
-
-			smGenerator := internal.NewTemplatedSystemMessageGenerator(
-				templateLocator,
-				chatOpts.TemplateName,
-				chatOpts.TemplateVariables,
-				contextRetriever,
-			)
-
-			interactiveCmd := internal.NewInteractiveCmd(
-				promptResolver,
-				clientProvider,
-				smGenerator,
-				chatOpts,
-			)
+			interactiveCmd := createInteractiveCommand(args, chatOpts)
 
 			err := interactiveCmd.Run()
 			if err != nil {
@@ -133,8 +99,65 @@ func CreateRootCommand() *cobra.Command {
 	return rootCmd
 }
 
+func createNonInteractiveCommand(
+	args []string,
+	templateName string,
+	templateVars map[string]string,
+) *internal.NonInteractiveCmd {
+	cfgProvider := config.NewDefaultProvider()
+	clientProvider := config.NewOpenAIClientProvider(cfgProvider)
+	templateLocator := getTemplateLocator(cfgProvider)
+	promptResolver := prompting.NewArgsOrTemplatePromptResolver(templateLocator, args, templateName)
+
+	contextRetriever := systemcontext.NewIOReaderContextRetriever(os.Stdin)
+	smGenerator := systemcontext.NewTemplatedSystemMessageGenerator(
+		templateLocator,
+		templateName,
+		templateVars,
+		contextRetriever,
+	)
+
+	return internal.NewNonInteractiveCmd(
+		clientProvider,
+		promptResolver,
+		smGenerator,
+	)
+}
+
+func createInteractiveCommand(args []string, opts internal.InteractiveChatOptions) *internal.InteractiveCmd {
+	cfgProvider := config.NewDefaultProvider()
+	clientProvider := config.NewOpenAIClientProvider(cfgProvider)
+	templateLocator := getTemplateLocator(cfgProvider)
+	promptResolver := prompting.NewArgsOrTemplatePromptResolver(templateLocator, args, opts.TemplateName)
+
+	retrieverConfig := systemcontext.FileContextRetrieverOptions{
+		CfgProvider:    cfgProvider,
+		IncludePattern: opts.IncludePattern,
+		ExcludePattern: opts.ExcludePattern,
+		SearchScopes:   opts.Paths,
+		ContextPrinter: printContext,
+	}
+
+	contextRetriever := systemcontext.NewFileContextRetriever(retrieverConfig)
+
+	smGenerator := systemcontext.NewTemplatedSystemMessageGenerator(
+		templateLocator,
+		opts.TemplateName,
+		opts.TemplateVariables,
+		contextRetriever,
+	)
+
+	return internal.NewInteractiveCmd(
+		promptResolver,
+		clientProvider,
+		smGenerator,
+		opts,
+	)
+}
+
 func printContext(fileTree string, files []filetree.File) {
 	ui.PrintMessage(fileTree, ui.MessageTypeInfo)
+
 	for _, file := range files {
 		printLargeFileWarning(file)
 	}
@@ -150,35 +173,7 @@ func printLargeFileWarning(file filetree.File) {
 	}
 }
 
-type defaultDeps struct {
-	configProvider         config.ConfigProvider
-	clientProvider         internal.ClientProvider
-	templateLocator        templates.TemplateLocator
-	promptResolver         internal.PromptResolver
-	systemMessageGenerator internal.SystemMessageGenerator
-}
-
-//func createDefaultDeps(args []string, templateName string, templateVars map[string]string) *defaultDeps {
-//	cfgProvider := internal.NewDefaultProvider()
-//	clientProvider := internal.NewOpenAIClientProvider(cfgProvider)
-//	templateLocator := getTemplateLocator(cfgProvider)
-//	promptResolver := internal.NewArgsOrTemplatePromptResolver(templateLocator, args, templateName)
-//	systemMessageGenerator := internal.NewTemplatedSystemMessageGenerator(
-//		templateLocator,
-//		templateName,
-//		templateVars,
-//	)
-//
-//	return &defaultDeps{
-//		configProvider:         cfgProvider,
-//		clientProvider:         clientProvider,
-//		templateLocator:        templateLocator,
-//		promptResolver:         promptResolver,
-//		systemMessageGenerator: systemMessageGenerator,
-//	}
-//}
-
-func getTemplateLocator(cfgProvider config.ConfigProvider) templates.TemplateLocator {
+func getTemplateLocator(cfgProvider config.Provider) *templates.MergedTemplateLocator {
 	var locators []templates.TemplateLocator
 
 	configDir, err := cfgProvider.GetConfigDir()

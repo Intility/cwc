@@ -2,6 +2,7 @@ package systemcontext
 
 import (
 	"fmt"
+
 	"github.com/intility/cwc/pkg/config"
 	"github.com/intility/cwc/pkg/errors"
 	"github.com/intility/cwc/pkg/filetree"
@@ -10,26 +11,28 @@ import (
 )
 
 type FileContextRetriever struct {
-	cfgProvider    config.ConfigProvider
+	cfgProvider    config.Provider
 	includePattern string
 	excludePattern string
 	searchScopes   []string
 	contextPrinter func(fileTree string, files []filetree.File)
 }
 
-func NewFileContextRetriever(
-	cfgProvider config.ConfigProvider,
-	includePattern string,
-	excludePattern string,
-	searchScopes []string,
-	contextPrinter func(fileTree string, files []filetree.File),
-) *FileContextRetriever {
+type FileContextRetrieverOptions struct {
+	CfgProvider    config.Provider
+	IncludePattern string
+	ExcludePattern string
+	SearchScopes   []string
+	ContextPrinter func(fileTree string, files []filetree.File)
+}
+
+func NewFileContextRetriever(opts FileContextRetrieverOptions) *FileContextRetriever {
 	return &FileContextRetriever{
-		cfgProvider:    cfgProvider,
-		includePattern: includePattern,
-		excludePattern: excludePattern,
-		searchScopes:   searchScopes,
-		contextPrinter: contextPrinter,
+		cfgProvider:    opts.CfgProvider,
+		includePattern: opts.IncludePattern,
+		excludePattern: opts.ExcludePattern,
+		searchScopes:   opts.SearchScopes,
+		contextPrinter: opts.ContextPrinter,
 	}
 }
 
@@ -105,7 +108,7 @@ func (r *FileContextRetriever) gatherContext() ([]filetree.File, *filetree.FileN
 func (r *FileContextRetriever) excludeMatchersFromConfig() ([]pathmatcher.PathMatcher, error) {
 	var excludeMatchers []pathmatcher.PathMatcher
 
-	cfg, err := r.cfgProvider.LoadConfig()
+	cfg, err := r.cfgProvider.GetConfig()
 	if err != nil {
 		return excludeMatchers, fmt.Errorf("error loading config: %w", err)
 	}
@@ -113,9 +116,12 @@ func (r *FileContextRetriever) excludeMatchersFromConfig() ([]pathmatcher.PathMa
 	if cfg.UseGitignore {
 		gitignoreMatcher, err := pathmatcher.NewGitignorePathMatcher()
 		if err != nil {
-			if errors.IsGitNotInstalledError(err) {
+			switch {
+			case errors.IsGitNotInstalledError(err):
 				ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", ui.MessageTypeWarning)
-			} else {
+			case errors.IsNotAGitRepositoryError(err):
+				ui.PrintMessage("warning: not a git repository, skipping .gitignore\n", ui.MessageTypeWarning)
+			default:
 				return nil, fmt.Errorf("error creating gitignore matcher: %w", err)
 			}
 		}

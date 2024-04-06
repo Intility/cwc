@@ -1,13 +1,13 @@
-package internal_test
+package config_test
 
 import (
 	"errors"
+	"github.com/intility/cwc/pkg/config"
 	"testing"
 
 	"github.com/sashabaranov/go-openai"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/intility/cwc/internal"
 	"github.com/intility/cwc/mocks"
 )
 
@@ -58,7 +58,7 @@ func TestNewClientFromConfig(t *testing.T) {
 			cfg := testConfig{cfgProvider: mockConfigProvider, clientConfig: openai.ClientConfig{}}
 			tt.setupMocks(cfg)
 
-			clientProvider := internal.NewOpenAIClientProvider(mockConfigProvider)
+			clientProvider := config.NewOpenAIClientProvider(mockConfigProvider)
 			res, err := clientProvider.NewClientFromConfig()
 
 			mockConfigProvider.AssertExpectations(t)

@@ -3,7 +3,6 @@ package pathmatcher
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"os/exec"
 	"slices"
 	"strings"
@@ -36,14 +35,22 @@ func (g *GitignorePathMatcher) Any() bool {
 func (g *GitignorePathMatcher) gitLsFiles() error {
 	// git ls-files -o --exclude-standard
 	buf := new(bytes.Buffer)
+	errBuf := new(bytes.Buffer)
 	cmd := exec.Command("git", "ls-files", "-o", "--ignored", "--exclude-standard")
 	cmd.Stdout = buf
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = errBuf
 
 	err := cmd.Run()
+
 	if err != nil {
+		errStr := errBuf.String()
+
 		if strings.Contains(err.Error(), "executable file not found in") {
 			return errors.GitNotInstalledError{Message: "git not found in PATH"}
+		}
+
+		if strings.Contains(errStr, "fatal: not a git repository") {
+			return errors.NotAGitRepositoryError{Message: "not a git repository"}
 		}
 
 		return fmt.Errorf("error running git ls-files: %w", err)

@@ -22,6 +22,51 @@ func (_m *ConfigProvider) EXPECT() *ConfigProvider_Expecter {
 	return &ConfigProvider_Expecter{mock: &_m.Mock}
 }
 
+// ClearConfig provides a mock function with given fields:
+func (_m *ConfigProvider) ClearConfig() error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClearConfig")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ConfigProvider_ClearConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClearConfig'
+type ConfigProvider_ClearConfig_Call struct {
+	*mock.Call
+}
+
+// ClearConfig is a helper method to define mock.On call
+func (_e *ConfigProvider_Expecter) ClearConfig() *ConfigProvider_ClearConfig_Call {
+	return &ConfigProvider_ClearConfig_Call{Call: _e.mock.On("ClearConfig")}
+}
+
+func (_c *ConfigProvider_ClearConfig_Call) Run(run func()) *ConfigProvider_ClearConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ConfigProvider_ClearConfig_Call) Return(_a0 error) *ConfigProvider_ClearConfig_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ConfigProvider_ClearConfig_Call) RunAndReturn(run func() error) *ConfigProvider_ClearConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetConfigDir provides a mock function with given fields:
 func (_m *ConfigProvider) GetConfigDir() (string, error) {
 	ret := _m.Called()
@@ -78,11 +123,11 @@ func (_c *ConfigProvider_GetConfigDir_Call) RunAndReturn(run func() (string, err
 }
 
 // LoadConfig provides a mock function with given fields:
-func (_m *ConfigProvider) LoadConfig() (*config.Config, error) {
+func (_m *ConfigProvider) GetConfig() (*config.Config, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for LoadConfig")
+		panic("no return value specified for GetConfig")
 	}
 
 	var r0 *config.Config
@@ -107,14 +152,14 @@ func (_m *ConfigProvider) LoadConfig() (*config.Config, error) {
 	return r0, r1
 }
 
-// ConfigProvider_LoadConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LoadConfig'
+// ConfigProvider_LoadConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetConfig'
 type ConfigProvider_LoadConfig_Call struct {
 	*mock.Call
 }
 
 // LoadConfig is a helper method to define mock.On call
 func (_e *ConfigProvider_Expecter) LoadConfig() *ConfigProvider_LoadConfig_Call {
-	return &ConfigProvider_LoadConfig_Call{Call: _e.mock.On("LoadConfig")}
+	return &ConfigProvider_LoadConfig_Call{Call: _e.mock.On("GetConfig")}
 }
 
 func (_c *ConfigProvider_LoadConfig_Call) Run(run func()) *ConfigProvider_LoadConfig_Call {
@@ -185,6 +230,52 @@ func (_c *ConfigProvider_NewFromConfigFile_Call) Return(_a0 openai.ClientConfig,
 }
 
 func (_c *ConfigProvider_NewFromConfigFile_Call) RunAndReturn(run func() (openai.ClientConfig, error)) *ConfigProvider_NewFromConfigFile_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SaveConfig provides a mock function with given fields: _a0
+func (_m *ConfigProvider) SaveConfig(_a0 *config.Config) error {
+	ret := _m.Called(_a0)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveConfig")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*config.Config) error); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ConfigProvider_SaveConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveConfig'
+type ConfigProvider_SaveConfig_Call struct {
+	*mock.Call
+}
+
+// SaveConfig is a helper method to define mock.On call
+//   - _a0 *config.Config
+func (_e *ConfigProvider_Expecter) SaveConfig(_a0 interface{}) *ConfigProvider_SaveConfig_Call {
+	return &ConfigProvider_SaveConfig_Call{Call: _e.mock.On("SaveConfig", _a0)}
+}
+
+func (_c *ConfigProvider_SaveConfig_Call) Run(run func(_a0 *config.Config)) *ConfigProvider_SaveConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*config.Config))
+	})
+	return _c
+}
+
+func (_c *ConfigProvider_SaveConfig_Call) Return(_a0 error) *ConfigProvider_SaveConfig_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ConfigProvider_SaveConfig_Call) RunAndReturn(run func(*config.Config) error) *ConfigProvider_SaveConfig_Call {
 	_c.Call.Return(run)
 	return _c
 }

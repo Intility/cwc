@@ -1,13 +1,12 @@
-package internal
+package systemcontext
 
 import (
 	"fmt"
-	"github.com/intility/cwc/pkg/systemcontext"
-	"github.com/intility/cwc/pkg/templates"
 	"strings"
 	tt "text/template"
 
 	"github.com/intility/cwc/pkg/errors"
+	"github.com/intility/cwc/pkg/templates"
 )
 
 type SystemMessageGenerator interface {
@@ -18,14 +17,14 @@ type TemplatedSystemMessageGenerator struct {
 	templateLocator  templates.TemplateLocator
 	templateName     string
 	templateVars     map[string]string
-	contextRetriever systemcontext.ContextRetriever
+	contextRetriever ContextRetriever
 }
 
 func NewTemplatedSystemMessageGenerator(
 	templateLocator templates.TemplateLocator,
 	templateName string,
 	templateVars map[string]string,
-	contextRetriever systemcontext.ContextRetriever,
+	contextRetriever ContextRetriever,
 ) *TemplatedSystemMessageGenerator {
 	return &TemplatedSystemMessageGenerator{
 		templateLocator:  templateLocator,

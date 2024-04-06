@@ -6,6 +6,9 @@ import (
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/intility/cwc/pkg/chat"
+	"github.com/intility/cwc/pkg/config"
+	"github.com/intility/cwc/pkg/prompting"
+	"github.com/intility/cwc/pkg/systemcontext"
 	"github.com/intility/cwc/pkg/ui"
 )
 
@@ -18,16 +21,16 @@ type InteractiveChatOptions struct {
 }
 
 type InteractiveCmd struct {
-	clientProvider ClientProvider
-	promptResolver PromptResolver
-	smGenerator    SystemMessageGenerator
+	clientProvider config.ClientProvider
+	promptResolver prompting.PromptResolver
+	smGenerator    systemcontext.SystemMessageGenerator
 	chatOptions    InteractiveChatOptions
 }
 
 func NewInteractiveCmd(
-	promptResolver PromptResolver,
-	clientProvider ClientProvider,
-	smGenerator SystemMessageGenerator,
+	promptResolver prompting.PromptResolver,
+	clientProvider config.ClientProvider,
+	smGenerator systemcontext.SystemMessageGenerator,
 	chatOptions InteractiveChatOptions,
 ) *InteractiveCmd {
 	return &InteractiveCmd{
