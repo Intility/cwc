@@ -43,7 +43,8 @@ func createLoginCmd() *cobra.Command {
 			cfg := config.NewConfig(endpointFlag, modelDeploymentFlag)
 			cfg.SetAPIKey(apiKeyFlag)
 
-			err := config.SaveConfig(cfg)
+			provider := config.NewDefaultProvider()
+			err := provider.SaveConfig(cfg)
 			if err != nil {
 				if validationErr, ok := errors.AsConfigValidationError(err); ok {
 					for _, e := range validationErr.Errors {
@@ -64,7 +65,7 @@ func createLoginCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&apiKeyFlag, "api-key", "k", "", "Azure OpenAI API Key")
 	cmd.Flags().StringVarP(&endpointFlag, "endpoint", "e", "", "Azure OpenAI API Endpoint")
-	cmd.Flags().StringVarP(&modelDeploymentFlag, "model-deployment", "m", "", "Azure OpenAI Model Deployment")
+	cmd.Flags().StringVarP(&modelDeploymentFlag, "deployment-name", "d", "", "Azure OpenAI Deployment Name")
 
 	return cmd
 }

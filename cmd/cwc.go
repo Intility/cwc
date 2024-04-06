@@ -3,14 +3,22 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
-	"github.com/intility/cwc/internal/cmd"
+	"github.com/intility/cwc/internal"
+	"github.com/intility/cwc/pkg/config"
+	"github.com/intility/cwc/pkg/filetree"
+	"github.com/intility/cwc/pkg/prompting"
+	"github.com/intility/cwc/pkg/systemcontext"
+	"github.com/intility/cwc/pkg/templates"
+	"github.com/intility/cwc/pkg/ui"
 )
 
 const (
-	longDescription = `The 'cwc' command initiates a new chat session, 
+	warnFileSizeThreshold = 100000
+	longDescription       = `The 'cwc' command initiates a new chat session, 
 providing granular control over the inclusion and exclusion of files via regular expression patterns. 
 It allows for specification of paths to include or exclude files from the chat context.
 
@@ -42,7 +50,7 @@ Using a specific template:
 )
 
 func CreateRootCommand() *cobra.Command {
-	chatOpts := cmd.InteractiveChatOptions{
+	chatOpts := internal.InteractiveChatOptions{
 		IncludePattern:    "",
 		ExcludePattern:    "",
 		Paths:             []string{},
@@ -60,7 +68,7 @@ func CreateRootCommand() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			if isPiped(os.Stdin) {
-				nic := cmd.NewNonInteractiveCmd(args, chatOpts.TemplateName, chatOpts.TemplateVariables)
+				nic := createNonInteractiveCommand(args, chatOpts.TemplateName, chatOpts.TemplateVariables)
 
 				err := nic.Run()
 				if err != nil {
@@ -70,7 +78,7 @@ func CreateRootCommand() *cobra.Command {
 				return nil
 			}
 
-			interactiveCmd := cmd.NewInteractiveCmd(args, chatOpts)
+			interactiveCmd := createInteractiveCommand(args, chatOpts)
 
 			err := interactiveCmd.Run()
 			if err != nil {
@@ -91,7 +99,95 @@ func CreateRootCommand() *cobra.Command {
 	return rootCmd
 }
 
-func initFlags(cmd *cobra.Command, opts *cmd.InteractiveChatOptions) {
+func createNonInteractiveCommand(
+	args []string,
+	templateName string,
+	templateVars map[string]string,
+) *internal.NonInteractiveCmd {
+	cfgProvider := config.NewDefaultProvider()
+	clientProvider := config.NewOpenAIClientProvider(cfgProvider)
+	templateLocator := getTemplateLocator(cfgProvider)
+	promptResolver := prompting.NewArgsOrTemplatePromptResolver(templateLocator, args, templateName)
+
+	contextRetriever := systemcontext.NewIOReaderContextRetriever(os.Stdin)
+	smGenerator := systemcontext.NewTemplatedSystemMessageGenerator(
+		templateLocator,
+		templateName,
+		templateVars,
+		contextRetriever,
+	)
+
+	return internal.NewNonInteractiveCmd(
+		clientProvider,
+		promptResolver,
+		smGenerator,
+	)
+}
+
+func createInteractiveCommand(args []string, opts internal.InteractiveChatOptions) *internal.InteractiveCmd {
+	cfgProvider := config.NewDefaultProvider()
+	clientProvider := config.NewOpenAIClientProvider(cfgProvider)
+	templateLocator := getTemplateLocator(cfgProvider)
+	promptResolver := prompting.NewArgsOrTemplatePromptResolver(templateLocator, args, opts.TemplateName)
+
+	retrieverConfig := systemcontext.FileContextRetrieverOptions{
+		CfgProvider:    cfgProvider,
+		IncludePattern: opts.IncludePattern,
+		ExcludePattern: opts.ExcludePattern,
+		SearchScopes:   opts.Paths,
+		ContextPrinter: printContext,
+	}
+
+	contextRetriever := systemcontext.NewFileContextRetriever(retrieverConfig)
+
+	smGenerator := systemcontext.NewTemplatedSystemMessageGenerator(
+		templateLocator,
+		opts.TemplateName,
+		opts.TemplateVariables,
+		contextRetriever,
+	)
+
+	return internal.NewInteractiveCmd(
+		promptResolver,
+		clientProvider,
+		smGenerator,
+		opts,
+	)
+}
+
+func printContext(fileTree string, files []filetree.File) {
+	ui.PrintMessage(fileTree, ui.MessageTypeInfo)
+
+	for _, file := range files {
+		printLargeFileWarning(file)
+	}
+}
+
+func printLargeFileWarning(file filetree.File) {
+	if len(file.Data) > warnFileSizeThreshold {
+		largeFileMsg := fmt.Sprintf(
+			"warning: %s is very large (%d bytes) and will degrade performance.\n",
+			file.Path, len(file.Data))
+
+		ui.PrintMessage(largeFileMsg, ui.MessageTypeWarning)
+	}
+}
+
+func getTemplateLocator(cfgProvider config.Provider) *templates.MergedTemplateLocator {
+	var locators []templates.TemplateLocator
+
+	configDir, err := cfgProvider.GetConfigDir()
+	if err == nil {
+		locators = append(locators, templates.NewYamlFileTemplateLocator(filepath.Join(configDir, "templates.yaml")))
+	}
+
+	locators = append(locators, templates.NewYamlFileTemplateLocator(filepath.Join(".cwc", "templates.yaml")))
+	mergedLocator := templates.NewMergedTemplateLocator(locators...)
+
+	return mergedLocator
+}
+
+func initFlags(cmd *cobra.Command, opts *internal.InteractiveChatOptions) {
 	cmd.Flags().StringVarP(&opts.IncludePattern, "include", "i", ".*", "a regular expression to match files to include")
 	cmd.Flags().StringVarP(&opts.ExcludePattern, "exclude", "x", "", "a regular expression to match files to exclude")
 	cmd.Flags().StringSliceVarP(&opts.Paths, "paths", "p", []string{"."}, "a list of paths to search for files")

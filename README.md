@@ -83,7 +83,7 @@ After installing Chat With Code, you're just a few steps away from a conversatio
          cwc login \
            --api-key=$API_KEY \
            --endpoint "https://your-endpoint.openai.azure.com/" \
-           --deployment-model "gpt-4-turbo"
+           --deployment-name "gpt-4-turbo"
          ```
 
    > **Security Notice**: Never input your API key directly into the command-line arguments to prevent potential exposure in shell history and process listings. The API key is securely stored in your personal keyring.

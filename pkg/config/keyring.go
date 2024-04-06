@@ -7,13 +7,27 @@ import (
 	"github.com/zalando/go-keyring"
 )
 
-func getAPIKeyFromKeyring() (string, error) {
-	usr, err := user.Current()
+type UsernameRetriever func() (*user.User, error)
+
+type KeyRingAPIKeyStorage struct {
+	serviceName       string
+	usernameRetriever UsernameRetriever
+}
+
+func NewKeyRingAPIKeyStorage(serviceName string, usernameRetriever UsernameRetriever) *KeyRingAPIKeyStorage {
+	return &KeyRingAPIKeyStorage{
+		serviceName:       serviceName,
+		usernameRetriever: usernameRetriever,
+	}
+}
+
+func (k *KeyRingAPIKeyStorage) GetAPIKey() (string, error) {
+	usr, err := k.usernameRetriever()
 	if err != nil {
 		return "", fmt.Errorf("error getting current user: %w", err)
 	}
 
-	apiKey, err := keyring.Get(serviceName, usr.Username)
+	apiKey, err := keyring.Get(k.serviceName, usr.Username)
 	if err != nil {
 		return "", fmt.Errorf("error getting API key from keyring: %w", err)
 	}
@@ -21,14 +35,14 @@ func getAPIKeyFromKeyring() (string, error) {
 	return apiKey, nil
 }
 
-func storeAPIKeyInKeyring(apiKey string) error {
-	usr, err := user.Current()
+func (k *KeyRingAPIKeyStorage) SetAPIKey(apiKey string) error {
+	usr, err := k.usernameRetriever()
 	if err != nil {
 		return fmt.Errorf("error getting current user: %w", err)
 	}
 
 	username := usr.Username
-	err = keyring.Set(serviceName, username, apiKey)
+	err = keyring.Set(k.serviceName, username, apiKey)
 
 	if err != nil {
 		return fmt.Errorf("error storing API key in keyring: %w", err)
@@ -37,8 +51,8 @@ func storeAPIKeyInKeyring(apiKey string) error {
 	return nil
 }
 
-func clearAPIKeyInKeyring() error {
-	usr, err := user.Current()
+func (k *KeyRingAPIKeyStorage) ClearAPIKey() error {
+	usr, err := k.usernameRetriever()
 	if err != nil {
 		return fmt.Errorf("error getting current user: %w", err)
 	}

@@ -76,6 +76,19 @@ func IsGitNotInstalledError(err error) bool {
 	return errors.As(err, &gitNotInstalledError)
 }
 
+type NotAGitRepositoryError struct {
+	Message string
+}
+
+func (e NotAGitRepositoryError) Error() string {
+	return e.Message
+}
+
+func IsNotAGitRepositoryError(err error) bool {
+	var notAGitRepositoryError NotAGitRepositoryError
+	return errors.As(err, &notAGitRepositoryError)
+}
+
 type NoPromptProvidedError struct {
 	Message string
 }
