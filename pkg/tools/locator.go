@@ -5,11 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/intility/cwc/pkg/errors"
-	"github.com/intility/cwc/pkg/ui"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
 	"gopkg.in/yaml.v3"
+
+	"github.com/intility/cwc/pkg/errors"
+	"github.com/intility/cwc/pkg/ui"
 )
 
 type ConfigFileToolLocator struct {

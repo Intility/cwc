@@ -2,13 +2,14 @@ package internal
 
 import (
 	"fmt"
-	"github.com/intility/cwc/pkg/tools"
+
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/intility/cwc/pkg/chat"
 	"github.com/intility/cwc/pkg/config"
 	"github.com/intility/cwc/pkg/prompting"
 	"github.com/intility/cwc/pkg/systemcontext"
+	"github.com/intility/cwc/pkg/tools"
 	"github.com/intility/cwc/pkg/ui"
 )
 

@@ -3,8 +3,9 @@ package tools
 import (
 	"path/filepath"
 
-	"github.com/intility/cwc/pkg/config"
 	"github.com/sashabaranov/go-openai"
+
+	"github.com/intility/cwc/pkg/config"
 )
 
 type ToolLocator interface {

@@ -8,10 +8,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sashabaranov/go-openai"
+
 	"github.com/intility/cwc/pkg/errors"
 	"github.com/intility/cwc/pkg/tools"
 	"github.com/intility/cwc/pkg/ui"
-	"github.com/sashabaranov/go-openai"
 )
 
 type Chat struct {
@@ -154,7 +155,7 @@ func (c *Conversation) processMessages(ctx context.Context) error {
 	return c.handleStream(ctx, stream)
 }
 
-func (c *Conversation) handleStream(ctx context.Context, stream *openai.ChatCompletionStream) error {
+func (c *Conversation) handleStream(ctx context.Context, stream *openai.ChatCompletionStream) error { //nolint:funlen
 	var reply strings.Builder
 
 	callDetector := tools.NewToolCallDetector()

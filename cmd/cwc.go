@@ -56,6 +56,7 @@ func CreateRootCommand() *cobra.Command {
 		Paths:             []string{},
 		TemplateName:      "",
 		TemplateVariables: nil,
+		ToolsEnabled:      []string{},
 	}
 
 	loginCmd := createLoginCmd()
