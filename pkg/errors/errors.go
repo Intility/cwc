@@ -76,6 +76,19 @@ func IsGitNotInstalledError(err error) bool {
 	return errors.As(err, &gitNotInstalledError)
 }
 
+type NotAGitRepositoryError struct {
+	Message string
+}
+
+func (e NotAGitRepositoryError) Error() string {
+	return e.Message
+}
+
+func IsNotAGitRepositoryError(err error) bool {
+	var notAGitRepositoryError NotAGitRepositoryError
+	return errors.As(err, &notAGitRepositoryError)
+}
+
 type NoPromptProvidedError struct {
 	Message string
 }
@@ -104,4 +117,23 @@ type NoToolCallsDetectedError struct{}
 
 func (e NoToolCallsDetectedError) Error() string {
 	return "no tool detected"
+}
+
+func IsTemplateNotFoundError(err error) bool {
+	var templateNotFoundError TemplateNotFoundError
+	return errors.As(err, &templateNotFoundError)
+}
+
+type SuppressedError struct{}
+
+func (e SuppressedError) Error() string {
+	return "error suppressed"
+}
+
+type ArgParseError struct {
+	Message string
+}
+
+func (e ArgParseError) Error() string {
+	return e.Message
 }

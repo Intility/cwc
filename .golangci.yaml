@@ -63,7 +63,7 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(github.com/emilkje/cwc)
+      - prefix(github.com/intility/cwc)
   depguard:
     rules:
       prevent_unmaintained_packages:

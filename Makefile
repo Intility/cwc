@@ -52,6 +52,10 @@ lint: golangci-lint ## Run golangci-lint linter & yamllint
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	$(GOLANGCI_LINT) run --fix ./...
 
+.PHONY: mocks
+mocks: mockery ## Generate mocks
+	$(MOCKERY)
+
 ##@ Build
 
 .PHONY: build
@@ -116,12 +120,14 @@ TOOLKIT_TOOLS_GEN = $(LOCALBIN)/toolkit-tools-gen-$(TOOLKIT_TOOLS_GEN_VERSION)
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 GOSEC = $(LOCALBIN)/gosec-$(GOSEC_VERSION)
 GOVULNCHECK = $(LOCALBIN)/govulncheck-$(GOVULNCHECK_VERSION)
+MOCKERY = $(LOCALBIN)/mockery-$(MOCKERY_VERSION)
 
 ## Tool Versions
 TOOLKIT_TOOLS_GEN_VERSION ?= latest
 GOLANGCI_LINT_VERSION ?= v1.54
 GOSEC_VERSION ?= latest
 GOVULNCHECK_VERSION ?= latest
+MOCKERY_VERSION ?= v2.42.1
 
 
 .PHONY: golangci-lint
@@ -143,6 +149,12 @@ $(GOVULNCHECK): $(LOCALBIN)
 toolkit-tools-gen: $(TOOLKIT_TOOLS_GEN) ## Download toolkit-tools-gen locally if necessary.
 $(TOOLKIT_TOOLS_GEN): $(LOCALBIN)
 	$(call go-install-tool,$(TOOLKIT_TOOLS_GEN),github.com/intility/go-openai-toolkit/cmd/toolkit-tools-gen,$(TOOLKIT_TOOLS_GEN_VERSION))
+
+.PHONY: mockery
+mockery: $(MOCKERY) ## Download toolkit-tools-gen locally if necessary.
+$(MOCKERY): $(LOCALBIN)
+	$(call go-install-tool,$(MOCKERY),github.com/vektra/mockery/v2,$(MOCKERY_VERSION))
+
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)

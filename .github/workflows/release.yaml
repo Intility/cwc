@@ -40,13 +40,8 @@ jobs:
     needs: test
     strategy:
       matrix:
-        goosarch:
-          - 'darwin/arm64'
-          - 'darwin/amd64'
-          - 'linux/arm64'
-          - 'linux/amd64'
-          - 'windows/amd64'
-          # etc
+        os: [ 'darwin', 'linux', 'windows' ]
+        arch: [ 'amd64', 'arm64' ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -55,14 +50,13 @@ jobs:
           go-version: '1.22'
       - name: Build binary
         run: |
-          GOOSARCH=${{matrix.goosarch}}
-          GOOS=${GOOSARCH%/*}
-          GOARCH=${GOOSARCH#*/}
+          GOOS=${{ matrix.os }}
+          GOARCH=${{ matrix.arch }}
           BINARY_NAME=cwc-$GOOS-$GOARCH
           if [ "$GOOS" = "windows" ]; then
               BINARY_NAME="$BINARY_NAME".exe
           fi
-          go build -o "$BINARY_NAME" -v
+          GOOS=$GOOS GOARCH=$GOARCH go build -o "$BINARY_NAME" -v
           echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
           echo "GOOS=$GOOS" >> $GITHUB_ENV
           echo "GOARCH=$GOARCH" >> $GITHUB_ENV
@@ -88,6 +82,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           body_path: ".github/RELEASE-TEMPLATE.md"
-          draft: false
+          draft: true
           files: "**/cwc-*"
           token: ${{secrets.GITHUB_TOKEN}}

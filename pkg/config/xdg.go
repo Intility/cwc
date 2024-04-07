@@ -11,7 +11,7 @@ const (
 )
 
 // helper function to get the XDG config path.
-func xdgConfigPath() (string, error) {
+func XdgConfigPath() (string, error) {
 	xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
 	if xdgConfigHome == "" {
 		// XDG_CONFIG_HOME was not set, use the default "~/.config"

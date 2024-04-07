@@ -4,10 +4,11 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/spf13/cobra"
+
 	"github.com/intility/cwc/pkg/config"
 	"github.com/intility/cwc/pkg/templates"
 	"github.com/intility/cwc/pkg/ui"
-	"github.com/spf13/cobra"
 )
 
 type Template struct {

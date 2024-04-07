@@ -83,8 +83,7 @@ After installing Chat With Code, you're just a few steps away from a conversatio
          cwc login \
            --api-key=$API_KEY \
            --endpoint "https://your-endpoint.openai.azure.com/" \
-           --api-version "2023-12-01-preview" \
-           --deployment-model "gpt-4-turbo"
+           --deployment-name "gpt-4-turbo"
          ```
 
    > **Security Notice**: Never input your API key directly into the command-line arguments to prevent potential exposure in shell history and process listings. The API key is securely stored in your personal keyring.
@@ -101,15 +100,40 @@ cwc --help
 
 ## Example usage
 
+The simplest example would be to chat with a single file or output from a command. This use-case is easy using a pipe:
+
+```sh
+cat README.md | cwc "help me rewrite the getting started section"
+```
+
+If you have multiple files you want to include in the context you can provide a regular expression matching your criteria for inclusion using the `-i` flag:
+
 ```sh
 # chat across all .go files
 cwc -i ".*.go"
+
+# chat with README and test files
+cwc -i "README.md|.*_test.go"
 ```
+
+The include flag can also be combined with exclusion expressions, these work exactly the same as the inclusion patterns, but takes priority:
+
+```sh
+# chat with all .ts files, excluding a large .ts file
+cwc -i ".*.ts$" -x "large_file.ts"
+```
+
+In addition to include and exclude expressions you can also scope the search space to a particular directory. Multiple paths can be provided by a comma separated list or by providing multiple instances of the `-p` flag.
 
 ```sh
 # chat with everything inside src/ except .tsx files
 cwc -x ".*.tsx" -p src
+
+# chat with all yaml files in prod and lab
+cwc -i ".*.ya?ml" -p prod,lab
 ```
+
+The result output from cwc can also be piped to other commands as well. This example automates the creation of a conventional commit based on the current git diff.
 
 ```sh
 # generate a commit message for current changes
@@ -117,13 +141,34 @@ PROMPT="please write me a conventional commit for these changes"
 git diff HEAD | cwc $PROMPT | git commit -e --file -
 ```
 
-## Template Features
+## Configuration
+
+Managing your configuration is simple with the `cwc config` command. This command allows you to view and set configuration options for cwc.
+To view the current configuration, use:
+
+```sh
+cwc config get
+```
+
+To set a configuration option, use:
+
+```sh
+cwc config set key1=value1 key2=value2 ...
+```
+
+For example, to disable the gitignore feature and the git directory exclusion, use:
+
+```sh
+cwc config set useGitignore=false excludeGitDir=false
+```
+
+To reset the configuration to default values use `cwc login` to re-authenticate.
+
+## Templates
 
 ### Overview
 
-Chat With Code (CWC) introduces the flexibility of custom templates to enhance the conversational coding experience. 
-Templates are pre-defined system messages and prompts that tailor interactions with your codebase. 
-A template envelops default prompts, system messages and variables, allowing for a personalized and context-aware dialogue.
+Chat With Code (CWC) introduces the flexibility of custom templates to enhance the conversational coding experience. Templates are pre-defined system messages and prompts that tailor interactions with your codebase. A template envelops default prompts, system messages and variables, allowing for easier access to common tasks.
 
 ### Template Schema
 
@@ -156,7 +201,6 @@ Templates may be placed within the repository or under the user's configuration 
    ├── .cwc
    │   └── templates.yaml
    ...
-   ```
 
 2. **In the User XDG CWC Config Directory**: For global user templates, place the `templates.yaml` within the XDG configuration directory for CWC, which is typically `~/.config/cwc/` on Unix-like systems:
 

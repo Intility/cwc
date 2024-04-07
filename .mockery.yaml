@@ -1,0 +1,13 @@
+quiet: false
+disable-version-string: true
+with-expecter: true
+all: true
+mockname: "{{.InterfaceName}}"
+filename: "{{.MockName}}.go"
+dir: "mocks"
+outpkg: "mocks"
+packages:
+  github.com/intility/cwc/internal:
+  github.com/intility/cwc/pkg/templates:
+  github.com/intility/cwc/pkg/config:
+  github.com/intility/cwc/pkg/systemcontext:

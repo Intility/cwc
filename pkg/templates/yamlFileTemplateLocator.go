@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/intility/cwc/pkg/errors"
 	"gopkg.in/yaml.v3"
+
+	"github.com/intility/cwc/pkg/errors"
 )
 
 type YamlFileTemplateLocator struct {
