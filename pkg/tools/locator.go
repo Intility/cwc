@@ -102,12 +102,12 @@ func (c *ConfigFileToolLocator) LocateTool(toolID string) *Tool {
 			continue
 		}
 
-		for _, tool := range config.Tools {
-			if tool.Name != toolID {
+		for _, configuredTool := range config.Tools {
+			if configuredTool.Name != toolID {
 				continue
 			}
 
-			propertiesMap, err := argsParser.ParseArguments(tool.Parameters)
+			propertiesMap, err := argsParser.ParseArguments(configuredTool.Parameters)
 			if err != nil {
 				ui.PrintMessage(err.Error(), ui.MessageTypeError)
 				continue
@@ -115,19 +115,29 @@ func (c *ConfigFileToolLocator) LocateTool(toolID string) *Tool {
 
 			// convert the ConfiguredTool to a Tool
 			var toolDef openai.FunctionDefinition
-			toolDef.Name = tool.Name
-			toolDef.Description = tool.Description
+			toolDef.Name = configuredTool.Name
+			toolDef.Description = configuredTool.Description
 			toolDef.Parameters = jsonschema.Definition{
 				Type:       jsonschema.Object,
 				Properties: propertiesMap,
 			}
 
-			return &Tool{
-				definition:       toolDef,
-				shellExecutables: tool.Shell,
-				webExecutables:   tool.Web,
-			}
+			tool := &Tool{definition: toolDef, executor: c.getExecutor(configuredTool)}
+
+			return tool
 		}
+	}
+
+	return nil
+}
+
+func (c *ConfigFileToolLocator) getExecutor(tool ConfiguredTool) ToolExecutor { //nolint:ireturn
+	if len(tool.Shell) > 0 {
+		return NewShellExecutor(tool.Shell)
+	}
+
+	if len(tool.Web) > 0 {
+		return NewWebExecutor(tool.Web)
 	}
 
 	return nil
@@ -156,8 +166,7 @@ func (m *MockLocator) LocateTool(id string) *Tool {
 	}
 
 	return &Tool{
-		definition:       toolDef,
-		shellExecutables: []string{`git diff {{or .source ""}} {{.target}}`},
-		webExecutables:   []string{},
+		definition: toolDef,
+		executor:   NewShellExecutor([]string{`git diff {{or .source ""}} {{.target}}`}),
 	}
 }

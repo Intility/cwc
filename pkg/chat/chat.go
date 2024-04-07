@@ -258,28 +258,16 @@ func (c *Conversation) handleToolCalls(detector *tools.ToolCallDetector) error {
 		if toolCall.Name == tool.Definition().Name {
 			ui.PrintMessage("[executing tool: "+tool.Definition().Name+"] ", ui.MessageTypeSuccess)
 
-			if tool.HasShellExecutables() {
-				toolExecutor := tools.NewShellExecutor()
-
-				toolResponse, err := toolExecutor.Execute(tool, toolCall.Args)
-				if err != nil {
-					return fmt.Errorf("error executing tool: %w", err)
-				}
-
-				c.messages = append(c.messages, openai.ChatCompletionMessage{
-					Role:       openai.ChatMessageRoleTool,
-					Content:    toolResponse,
-					ToolCallID: toolCall.ID,
-				})
+			toolResponse, err := tool.Execute(toolCall.Args)
+			if err != nil {
+				return fmt.Errorf("error executing tool: %w", err)
 			}
 
-			if tool.HasWebExecutables() {
-				c.messages = append(c.messages, openai.ChatCompletionMessage{
-					Role:       openai.ChatMessageRoleTool,
-					Content:    "Web tool execution not yet supported",
-					ToolCallID: toolCall.ID,
-				})
-			}
+			c.messages = append(c.messages, openai.ChatCompletionMessage{
+				Role:       openai.ChatMessageRoleTool,
+				Content:    toolResponse,
+				ToolCallID: toolCall.ID,
+			})
 		}
 	}
 

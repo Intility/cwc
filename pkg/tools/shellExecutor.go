@@ -8,13 +8,15 @@ import (
 	"text/template"
 )
 
-type ShellExecutor struct{}
-
-func NewShellExecutor() *ShellExecutor {
-	return &ShellExecutor{}
+type ShellExecutor struct {
+	scripts []string
 }
 
-func (s *ShellExecutor) Execute(tool Tool, arguments string) (string, error) {
+func NewShellExecutor(scripts []string) *ShellExecutor {
+	return &ShellExecutor{scripts: scripts}
+}
+
+func (s *ShellExecutor) Execute(arguments string) (string, error) {
 	results := make([]string, 0)
 
 	args := make(map[string]string)
@@ -25,7 +27,7 @@ func (s *ShellExecutor) Execute(tool Tool, arguments string) (string, error) {
 	}
 
 	// create templates from the tool's scripts
-	for _, script := range tool.ShellExecutables() {
+	for _, script := range s.scripts {
 		tmpl := template.New("script")
 
 		tmpl, err = tmpl.Parse(script)

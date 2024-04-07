@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/sashabaranov/go-openai"
@@ -13,33 +14,25 @@ type ToolLocator interface {
 }
 
 type ToolExecutor interface {
-	Execute(tool Tool, args any) (string, error)
+	Execute(args string) (string, error)
 }
 
 type Tool struct {
-	definition       openai.FunctionDefinition
-	shellExecutables []string
-	webExecutables   []string
-}
-
-func (t *Tool) ShellExecutables() []string {
-	return t.shellExecutables
-}
-
-func (t *Tool) HasShellExecutables() bool {
-	return len(t.shellExecutables) > 0
-}
-
-func (t *Tool) WebExecutables() []string {
-	return t.webExecutables
-}
-
-func (t *Tool) HasWebExecutables() bool {
-	return len(t.webExecutables) > 0
+	definition openai.FunctionDefinition
+	executor   ToolExecutor
 }
 
 func (t *Tool) Definition() openai.FunctionDefinition {
 	return t.definition
+}
+
+func (t *Tool) Execute(args string) (string, error) {
+	result, err := t.executor.Execute(args)
+	if err != nil {
+		return "", fmt.Errorf("error executing tool: %w", err)
+	}
+
+	return result, nil
 }
 
 type Toolkit struct {
