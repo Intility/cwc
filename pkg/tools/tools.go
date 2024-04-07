@@ -13,7 +13,7 @@ type ToolLocator interface {
 }
 
 type ToolExecutor interface {
-	Execute(Tool, any) (string, error)
+	Execute(tool Tool, args any) (string, error)
 }
 
 type Tool struct {
@@ -47,7 +47,7 @@ type Toolkit struct {
 	enabledTools map[string]*Tool
 }
 
-func NewToolkit(toolIDs ...string) *Toolkit {
+func NewToolkitFromConfigFile(toolIDs ...string) *Toolkit {
 	var paths []string
 
 	// add global dir first and local dir second to allow local to override global

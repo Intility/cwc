@@ -78,7 +78,7 @@ func (c *InteractiveCmd) handleChat(client *openai.Client, systemMessage string,
 	chatInstance := chat.NewChat(client, systemMessage, c.printMessageChunk)
 
 	if len(c.chatOptions.ToolsEnabled) > 0 {
-		toolkit := tools.NewToolkit(c.chatOptions.ToolsEnabled...)
+		toolkit := tools.NewToolkitFromConfigFile(c.chatOptions.ToolsEnabled...)
 		chatInstance.UseToolkit(toolkit)
 	}
 

@@ -205,7 +205,7 @@ func initFlags(cmd *cobra.Command, opts *internal.InteractiveChatOptions) {
 	cmd.Flags().StringVarP(&opts.TemplateName, "template", "t", "default", "the name of the template to use")
 	cmd.Flags().StringToStringVarP(&opts.TemplateVariables,
 		"template-variables", "v", nil, "variables to use in the template")
-	cmd.Flags().StringSliceVarP(&opts.ToolsEnabled, "tools-enabled", "T", nil, "enable specific tools")
+	cmd.Flags().StringSliceVarP(&opts.ToolsEnabled, "tools", "T", nil, "enable tools for the chat session")
 
 	cmd.Flag("include").
 		Usage = "Specify a regex pattern to include files. " +
@@ -221,8 +221,8 @@ func initFlags(cmd *cobra.Command, opts *internal.InteractiveChatOptions) {
 	cmd.Flag("template-variables").
 		Usage = "Specify variables to use in the template. For example, to use the variable 'name' " +
 		"with the value 'John', use --template-variables name=John"
-	cmd.Flag("tools-enabled").
-		Usage = "Enable specific tools. For example, to enable the 'search' tool, use --tools-enabled search"
+	cmd.Flag("tools").
+		Usage = "Enable a list of specific tools. For example, to enable the 'search' tool, use --tools search"
 }
 
 func isPiped(file *os.File) bool {
