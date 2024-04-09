@@ -9,19 +9,19 @@ import (
 
 type UsernameRetriever func() (*user.User, error)
 
-type KeyRingAPIKeyStorage struct {
+type APIKeyKeyringStore struct {
 	serviceName       string
 	usernameRetriever UsernameRetriever
 }
 
-func NewKeyRingAPIKeyStorage(serviceName string, usernameRetriever UsernameRetriever) *KeyRingAPIKeyStorage {
-	return &KeyRingAPIKeyStorage{
+func NewAPIKeyKeyringStore(serviceName string, usernameRetriever UsernameRetriever) *APIKeyKeyringStore {
+	return &APIKeyKeyringStore{
 		serviceName:       serviceName,
 		usernameRetriever: usernameRetriever,
 	}
 }
 
-func (k *KeyRingAPIKeyStorage) GetAPIKey() (string, error) {
+func (k *APIKeyKeyringStore) GetAPIKey() (string, error) {
 	usr, err := k.usernameRetriever()
 	if err != nil {
 		return "", fmt.Errorf("error getting current user: %w", err)
@@ -35,7 +35,7 @@ func (k *KeyRingAPIKeyStorage) GetAPIKey() (string, error) {
 	return apiKey, nil
 }
 
-func (k *KeyRingAPIKeyStorage) SetAPIKey(apiKey string) error {
+func (k *APIKeyKeyringStore) SetAPIKey(apiKey string) error {
 	usr, err := k.usernameRetriever()
 	if err != nil {
 		return fmt.Errorf("error getting current user: %w", err)
@@ -51,7 +51,7 @@ func (k *KeyRingAPIKeyStorage) SetAPIKey(apiKey string) error {
 	return nil
 }
 
-func (k *KeyRingAPIKeyStorage) ClearAPIKey() error {
+func (k *APIKeyKeyringStore) ClearAPIKey() error {
 	usr, err := k.usernameRetriever()
 	if err != nil {
 		return fmt.Errorf("error getting current user: %w", err)

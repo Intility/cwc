@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -57,4 +58,9 @@ func DefaultConfigPath() (string, error) {
 	}
 
 	return filepath.Join(cfgPath, configFileName), nil
+}
+
+func IsWSL() bool {
+	_, exists := os.LookupEnv("WSL_DISTRO_NAME")
+	return exists
 }

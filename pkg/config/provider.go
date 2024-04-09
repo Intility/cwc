@@ -39,25 +39,63 @@ type DefaultProviderOptions struct {
 	FileManager FileManager
 	Marshaller  Marshaller
 	Validator   Validator
-	KeyStore    APIKeyStorage
+	KeyStore    APIKeyStore
 }
 
 type DefaultProvider struct {
 	configPath  string
 	fileManager FileManager
 	marshaller  Marshaller
-	keyStore    APIKeyStorage
+	keyStore    APIKeyStore
 	validate    Validator
 }
 
-func NewDefaultProvider() *DefaultProvider {
-	return NewDefaultProviderWithOptions(DefaultProviderOptions{
+type optFunc func(*DefaultProviderOptions)
+
+func NewDefaultProvider(opts ...optFunc) *DefaultProvider {
+	options := DefaultProviderOptions{
 		ConfigPath:  "",
 		FileManager: &OSFileManager{},
 		Marshaller:  &YamlMarshaller{},
 		Validator:   DefaultValidator,
-		KeyStore:    NewKeyRingAPIKeyStorage("cwc", user.Current),
-	})
+		KeyStore:    NewAPIKeyKeyringStore("cwc", user.Current),
+	}
+
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	return NewDefaultProviderWithOptions(options)
+}
+
+func WithConfigPath(path string) optFunc {
+	return func(o *DefaultProviderOptions) {
+		o.ConfigPath = path
+	}
+}
+
+func WithFileManager(fm FileManager) optFunc {
+	return func(o *DefaultProviderOptions) {
+		o.FileManager = fm
+	}
+}
+
+func WithMarshaller(m Marshaller) optFunc {
+	return func(o *DefaultProviderOptions) {
+		o.Marshaller = m
+	}
+}
+
+func WithValidator(v Validator) optFunc {
+	return func(o *DefaultProviderOptions) {
+		o.Validator = v
+	}
+}
+
+func WithKeyStore(ks APIKeyStore) optFunc {
+	return func(o *DefaultProviderOptions) {
+		o.KeyStore = ks
+	}
 }
 
 func NewDefaultProviderWithOptions(opts DefaultProviderOptions) *DefaultProvider {
@@ -83,7 +121,7 @@ func NewDefaultProviderWithOptions(opts DefaultProviderOptions) *DefaultProvider
 	}
 
 	if opts.KeyStore == nil {
-		opts.KeyStore = NewKeyRingAPIKeyStorage("cwc", user.Current)
+		opts.KeyStore = NewAPIKeyKeyringStore("cwc", user.Current)
 	}
 
 	return &DefaultProvider{
