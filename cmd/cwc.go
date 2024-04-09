@@ -67,10 +67,15 @@ func CreateRootCommand() *cobra.Command {
 		Long:  longDescription,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			if isPiped(os.Stdin) {
-				nic := createNonInteractiveCommand(args, chatOpts.TemplateName, chatOpts.TemplateVariables)
+			cfgProvider, err := getPlatformSpecificConfigProvider()
+			if err != nil {
+				return fmt.Errorf("error getting config provider: %w", err)
+			}
 
-				err := nic.Run()
+			if isPiped(os.Stdin) {
+				nic := createNonInteractiveCommand(cfgProvider, args, chatOpts.TemplateName, chatOpts.TemplateVariables)
+
+				err = nic.Run()
 				if err != nil {
 					return fmt.Errorf("error running non-interactive command: %w", err)
 				}
@@ -78,9 +83,9 @@ func CreateRootCommand() *cobra.Command {
 				return nil
 			}
 
-			interactiveCmd := createInteractiveCommand(args, chatOpts)
+			interactiveCmd := createInteractiveCommand(args, chatOpts, cfgProvider)
 
-			err := interactiveCmd.Run()
+			err = interactiveCmd.Run()
 			if err != nil {
 				return fmt.Errorf("error running interactive command: %w", err)
 			}
@@ -100,11 +105,11 @@ func CreateRootCommand() *cobra.Command {
 }
 
 func createNonInteractiveCommand(
+	cfgProvider config.Provider,
 	args []string,
 	templateName string,
 	templateVars map[string]string,
 ) *internal.NonInteractiveCmd {
-	cfgProvider := config.NewDefaultProvider()
 	clientProvider := config.NewOpenAIClientProvider(cfgProvider)
 	templateLocator := getTemplateLocator(cfgProvider)
 	promptResolver := prompting.NewArgsOrTemplatePromptResolver(templateLocator, args, templateName)
@@ -124,8 +129,11 @@ func createNonInteractiveCommand(
 	)
 }
 
-func createInteractiveCommand(args []string, opts internal.InteractiveChatOptions) *internal.InteractiveCmd {
-	cfgProvider := config.NewDefaultProvider()
+func createInteractiveCommand(
+	args []string,
+	opts internal.InteractiveChatOptions,
+	cfgProvider config.Provider,
+) *internal.InteractiveCmd {
 	clientProvider := config.NewOpenAIClientProvider(cfgProvider)
 	templateLocator := getTemplateLocator(cfgProvider)
 	promptResolver := prompting.NewArgsOrTemplatePromptResolver(templateLocator, args, opts.TemplateName)
@@ -153,6 +161,24 @@ func createInteractiveCommand(args []string, opts internal.InteractiveChatOption
 		smGenerator,
 		opts,
 	)
+}
+
+func getPlatformSpecificConfigProvider() (config.Provider, error) { //nolint: ireturn
+	var cfgProvider config.Provider
+
+	if config.IsWSL() {
+		configDir, err := config.GetConfigDir()
+		if err != nil {
+			return nil, fmt.Errorf("error getting config directory: %w", err)
+		}
+
+		keyStore := config.NewAPIKeyFileStore(filepath.Join(configDir, "api.key"))
+		cfgProvider = config.NewDefaultProvider(config.WithKeyStore(keyStore))
+	} else {
+		cfgProvider = config.NewDefaultProvider()
+	}
+
+	return cfgProvider, nil
 }
 
 func printContext(fileTree string, files []filetree.File) {
