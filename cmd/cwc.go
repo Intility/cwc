@@ -13,7 +13,7 @@ import (
 	"github.com/intility/cwc/pkg/prompting"
 	"github.com/intility/cwc/pkg/systemcontext"
 	"github.com/intility/cwc/pkg/templates"
-	"github.com/intility/cwc/pkg/ui"
+	cwcui "github.com/intility/cwc/pkg/ui"
 )
 
 const (
@@ -182,7 +182,8 @@ func getPlatformSpecificConfigProvider() (config.Provider, error) { //nolint: ir
 }
 
 func printContext(fileTree string, files []filetree.File) {
-	ui.PrintMessage(fileTree, ui.MessageTypeInfo)
+	ui := cwcui.NewUI()
+	ui.PrintMessage(fileTree, cwcui.MessageTypeInfo)
 
 	for _, file := range files {
 		printLargeFileWarning(file)
@@ -195,7 +196,8 @@ func printLargeFileWarning(file filetree.File) {
 			"warning: %s is very large (%d bytes) and will degrade performance.\n",
 			file.Path, len(file.Data))
 
-		ui.PrintMessage(largeFileMsg, ui.MessageTypeWarning)
+		ui := cwcui.NewUI()
+		ui.PrintMessage(largeFileMsg, cwcui.MessageTypeWarning)
 	}
 }
 

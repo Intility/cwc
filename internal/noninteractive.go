@@ -12,6 +12,7 @@ import (
 )
 
 type NonInteractiveCmd struct {
+	ui             ui.UI
 	clientProvider config.ClientProvider
 	promptResolver prompting.PromptResolver
 	smGenerator    systemcontext.SystemMessageGenerator
@@ -23,6 +24,7 @@ func NewNonInteractiveCmd(
 	smGenerator systemcontext.SystemMessageGenerator,
 ) *NonInteractiveCmd {
 	return &NonInteractiveCmd{
+		ui:             ui.NewUI(),
 		clientProvider: clientProvider,
 		promptResolver: promptResolver,
 		smGenerator:    smGenerator,
@@ -55,5 +57,5 @@ func (c *NonInteractiveCmd) Run() error {
 }
 
 func (c *NonInteractiveCmd) printChunk(chunk *chat.ConversationChunk) {
-	ui.PrintMessage(chunk.Content, ui.MessageTypeInfo)
+	c.ui.PrintMessage(chunk.Content, ui.MessageTypeInfo)
 }
