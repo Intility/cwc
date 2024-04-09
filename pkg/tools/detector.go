@@ -39,32 +39,53 @@ type ToolCall struct {
 	Args  string
 }
 
-func (t *ToolCallDetector) DetectedToolCall() *ToolCall {
+func (t *ToolCallDetector) DetectedToolCalls() []ToolCall {
 	if !t.isReady {
 		return nil
 	}
 
 	// construct the name and args from the responses
-	toolCall := &ToolCall{
-		Index: nil,
-		ID:    "",
-		Name:  "",
-		Args:  "",
-	}
+	toolCalls := make([]ToolCall, 0)
+
+	var currentToolCall ToolCall
+
+	// split the responses based on the presence of ToolCalls.ID.
+	// This separates the tool calls from each other as multiple may be present in the responses.
 
 	for _, res := range t.responses {
 		for _, calls := range res.Choices[0].Delta.ToolCalls {
-			if toolCall.Index == nil && calls.Index != nil {
-				toolCall.Index = calls.Index
+			if calls.ID != "" {
+				if currentToolCall.ID != "" {
+					toolCalls = append(toolCalls, currentToolCall)
+					currentToolCall = ToolCall{}
+				}
+				currentToolCall.Index = calls.Index
+				currentToolCall.ID = calls.ID
+				currentToolCall.Name = calls.Function.Name
+			} else {
+				currentToolCall.Name += calls.Function.Name // in case the name is split across multiple responses
+				currentToolCall.Args += calls.Function.Arguments
 			}
-
-			toolCall.ID += calls.ID
-			toolCall.Name += calls.Function.Name
-			toolCall.Args += calls.Function.Arguments
 		}
 	}
 
-	return toolCall
+	if currentToolCall.ID != "" {
+		toolCalls = append(toolCalls, currentToolCall)
+	}
+
+	//for _, res := range t.responses {
+	//	for _, calls := range res.Choices[0].Delta.ToolCalls {
+	//		if toolCall.Index == nil && calls.Index != nil {
+	//			toolCall.Index = calls.Index
+	//		}
+	//
+	//		toolCall.ID += calls.ID
+	//		toolCall.Name += calls.Function.Name
+	//		toolCall.Args += calls.Function.Arguments
+	//	}
+	//}
+
+	return toolCalls
 }
 
 func (t *ToolCallDetector) Flush() {

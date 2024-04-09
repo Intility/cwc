@@ -229,8 +229,8 @@ answer:
 }
 
 func (c *Conversation) handleToolCalls(detector *tools.ToolCallDetector) error {
-	toolCall := detector.DetectedToolCall()
-	if toolCall == nil {
+	toolCalls := detector.DetectedToolCalls()
+	if len(toolCalls) == 0 {
 		return errors.NoToolCallsDetectedError{}
 	}
 
@@ -238,36 +238,38 @@ func (c *Conversation) handleToolCalls(detector *tools.ToolCallDetector) error {
 
 	// reconstruct the assistant message from the streamed responses
 	// gathered by the detector
-	c.messages = append(c.messages, openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleAssistant,
-		Content: "",
-		ToolCalls: []openai.ToolCall{
-			{
-				Index: toolCall.Index,
-				ID:    toolCall.ID,
-				Type:  openai.ToolTypeFunction,
-				Function: openai.FunctionCall{
-					Name:      toolCall.Name,
-					Arguments: toolCall.Args,
+	for _, toolCall := range toolCalls {
+		c.messages = append(c.messages, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleAssistant,
+			Content: "",
+			ToolCalls: []openai.ToolCall{
+				{
+					Index: toolCall.Index,
+					ID:    toolCall.ID,
+					Type:  openai.ToolTypeFunction,
+					Function: openai.FunctionCall{
+						Name:      toolCall.Name,
+						Arguments: toolCall.Args,
+					},
 				},
 			},
-		},
-	})
+		})
 
-	for _, tool := range c.tools {
-		if toolCall.Name == tool.Definition().Name {
-			ui.PrintMessage("[executing tool: "+tool.Definition().Name+"] ", ui.MessageTypeSuccess)
+		for _, tool := range c.tools {
+			if toolCall.Name == tool.Definition().Name {
+				ui.PrintMessage("[executing tool: "+tool.Definition().Name+" "+toolCall.Args+"] ", ui.MessageTypeSuccess)
 
-			toolResponse, err := tool.Execute(toolCall.Args)
-			if err != nil {
-				return fmt.Errorf("error executing tool: %w", err)
+				toolResponse, err := tool.Execute(toolCall.Args)
+				if err != nil {
+					return fmt.Errorf("error executing tool: %w", err)
+				}
+
+				c.messages = append(c.messages, openai.ChatCompletionMessage{
+					Role:       openai.ChatMessageRoleTool,
+					Content:    toolResponse,
+					ToolCallID: toolCall.ID,
+				})
 			}
-
-			c.messages = append(c.messages, openai.ChatCompletionMessage{
-				Role:       openai.ChatMessageRoleTool,
-				Content:    toolResponse,
-				ToolCallID: toolCall.ID,
-			})
 		}
 	}
 
