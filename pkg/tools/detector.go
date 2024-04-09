@@ -57,8 +57,9 @@ func (t *ToolCallDetector) DetectedToolCalls() []ToolCall {
 			if calls.ID != "" {
 				if currentToolCall.ID != "" {
 					toolCalls = append(toolCalls, currentToolCall)
-					currentToolCall = ToolCall{}
+					currentToolCall = ToolCall{Index: nil, ID: "", Name: "", Args: ""}
 				}
+
 				currentToolCall.Index = calls.Index
 				currentToolCall.ID = calls.ID
 				currentToolCall.Name = calls.Function.Name
@@ -72,18 +73,6 @@ func (t *ToolCallDetector) DetectedToolCalls() []ToolCall {
 	if currentToolCall.ID != "" {
 		toolCalls = append(toolCalls, currentToolCall)
 	}
-
-	//for _, res := range t.responses {
-	//	for _, calls := range res.Choices[0].Delta.ToolCalls {
-	//		if toolCall.Index == nil && calls.Index != nil {
-	//			toolCall.Index = calls.Index
-	//		}
-	//
-	//		toolCall.ID += calls.ID
-	//		toolCall.Name += calls.Function.Name
-	//		toolCall.Args += calls.Function.Arguments
-	//	}
-	//}
 
 	return toolCalls
 }
