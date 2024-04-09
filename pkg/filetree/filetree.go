@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	pm "github.com/intility/cwc/pkg/pathmatcher"
-	"github.com/intility/cwc/pkg/ui"
+	cwcui "github.com/intility/cwc/pkg/ui"
 )
 
 type FileNode struct {
@@ -34,6 +34,7 @@ func GatherFiles(opts *FileGatherOptions) ([]File, *FileNode, error) { //nolint:
 	includeMatcher := opts.IncludeMatcher
 	excludeMatcher := opts.ExcludeMatcher
 	pathScopes := opts.PathScopes
+	ui := cwcui.NewUI() //nolint:varnamelen
 
 	var files []File
 
@@ -55,7 +56,7 @@ func GatherFiles(opts *FileGatherOptions) ([]File, *FileNode, error) { //nolint:
 			fileType, ok := knownLanguage(path)
 
 			if !ok {
-				ui.PrintMessage("skipping unknown file type: "+path+"\n", ui.MessageTypeWarning)
+				ui.PrintMessage("skipping unknown file type: "+path+"\n", cwcui.MessageTypeWarning)
 				return nil
 			}
 
@@ -73,7 +74,7 @@ func GatherFiles(opts *FileGatherOptions) ([]File, *FileNode, error) { //nolint:
 			defer func() {
 				err = codeFile.Close()
 				if err != nil {
-					ui.PrintMessage(fmt.Sprintf("error closing codeFile: %s\n", err), ui.MessageTypeError)
+					ui.PrintMessage(fmt.Sprintf("error closing codeFile: %s\n", err), cwcui.MessageTypeError)
 				}
 			}()
 

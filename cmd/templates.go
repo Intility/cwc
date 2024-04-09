@@ -8,7 +8,7 @@ import (
 
 	"github.com/intility/cwc/pkg/config"
 	"github.com/intility/cwc/pkg/templates"
-	"github.com/intility/cwc/pkg/ui"
+	cwcui "github.com/intility/cwc/pkg/ui"
 )
 
 type Template struct {
@@ -18,6 +18,7 @@ type Template struct {
 }
 
 func createTemplatesCmd() *cobra.Command {
+	ui := cwcui.NewUI() //nolint:varnamelen
 	cmd := &cobra.Command{
 		Use:   "templates",
 		Short: "Lists available templates",
@@ -25,40 +26,40 @@ func createTemplatesCmd() *cobra.Command {
 			tmpls := locateTemplates()
 
 			if len(tmpls) == 0 {
-				ui.PrintMessage("No templates found", ui.MessageTypeInfo)
+				ui.PrintMessage("No templates found", cwcui.MessageTypeInfo)
 				return nil
 			}
 
 			if cfgDir, err := config.GetConfigDir(); err == nil {
-				ui.PrintMessage("global", ui.MessageTypeWarning)
+				ui.PrintMessage("global", cwcui.MessageTypeWarning)
 				ui.PrintMessage(": the template is defined in "+
-					filepath.Join(cfgDir, "templates.yaml")+"\n", ui.MessageTypeInfo)
+					filepath.Join(cfgDir, "templates.yaml")+"\n", cwcui.MessageTypeInfo)
 			}
 
-			ui.PrintMessage("local", ui.MessageTypeSuccess)
-			ui.PrintMessage(": the template is defined in ./cwc/templates.yaml\n", ui.MessageTypeInfo)
+			ui.PrintMessage("local", cwcui.MessageTypeSuccess)
+			ui.PrintMessage(": the template is defined in ./cwc/templates.yaml\n", cwcui.MessageTypeInfo)
 
-			ui.PrintMessage("overridden", ui.MessageTypeError)
-			ui.PrintMessage(": the local template is overriding a global template with the same name\n\n", ui.MessageTypeInfo)
+			ui.PrintMessage("overridden", cwcui.MessageTypeError)
+			ui.PrintMessage(": the local template is overriding a global template with the same name\n\n", cwcui.MessageTypeInfo)
 
-			ui.PrintMessage("Available templates:\n", ui.MessageTypeInfo)
+			ui.PrintMessage("Available templates:\n", cwcui.MessageTypeInfo)
 
 			for _, template := range tmpls {
 				if template.isOverridingGlobal {
 					template.placement = "overridden"
 				}
 
-				placementMessageType := ui.MessageTypeSuccess
+				placementMessageType := cwcui.MessageTypeSuccess
 				if template.placement == "global" {
-					placementMessageType = ui.MessageTypeWarning
+					placementMessageType = cwcui.MessageTypeWarning
 				}
 
 				if template.isOverridingGlobal {
-					placementMessageType = ui.MessageTypeError
+					placementMessageType = cwcui.MessageTypeError
 				}
 
-				ui.PrintMessage("- name: ", ui.MessageTypeInfo)
-				ui.PrintMessage(template.template.Name, ui.MessageTypeInfo)
+				ui.PrintMessage("- name: ", cwcui.MessageTypeInfo)
+				ui.PrintMessage(template.template.Name, cwcui.MessageTypeInfo)
 				ui.PrintMessage(" ("+template.placement+")\n", placementMessageType)
 				printTemplateInfo(template.template)
 			}
@@ -106,32 +107,33 @@ func locateTemplates() map[string]Template {
 }
 
 func printTemplateInfo(template templates.Template) {
-	ui.PrintMessage("  description: "+template.Description+"\n", ui.MessageTypeInfo)
+	ui := cwcui.NewUI() //nolint:varnamelen
+	ui.PrintMessage("  description: "+template.Description+"\n", cwcui.MessageTypeInfo)
 
 	dfp := "no"
 	if template.DefaultPrompt != "" {
 		dfp = "yes"
 	}
 
-	ui.PrintMessage("  has_default_prompt: "+dfp+"\n", ui.MessageTypeInfo)
+	ui.PrintMessage("  has_default_prompt: "+dfp+"\n", cwcui.MessageTypeInfo)
 
 	variablesCount := len(template.Variables)
 
-	ui.PrintMessage("  variables: "+strconv.Itoa(variablesCount)+"\n", ui.MessageTypeInfo)
+	ui.PrintMessage("  variables: "+strconv.Itoa(variablesCount)+"\n", cwcui.MessageTypeInfo)
 
 	for _, variable := range template.Variables {
-		ui.PrintMessage("  - name: ", ui.MessageTypeInfo)
-		ui.PrintMessage(variable.Name, ui.MessageTypeInfo)
-		ui.PrintMessage("\n", ui.MessageTypeInfo)
-		ui.PrintMessage("    description: "+variable.Description+"\n", ui.MessageTypeInfo)
+		ui.PrintMessage("  - name: ", cwcui.MessageTypeInfo)
+		ui.PrintMessage(variable.Name, cwcui.MessageTypeInfo)
+		ui.PrintMessage("\n", cwcui.MessageTypeInfo)
+		ui.PrintMessage("    description: "+variable.Description+"\n", cwcui.MessageTypeInfo)
 
 		dv := "no"
 		if variable.DefaultValue != "" {
 			dv = "yes"
 		}
 
-		ui.PrintMessage("    has_default_value: "+dv+"\n", ui.MessageTypeInfo)
+		ui.PrintMessage("    has_default_value: "+dv+"\n", cwcui.MessageTypeInfo)
 	}
 
-	ui.PrintMessage("\n", ui.MessageTypeInfo)
+	ui.PrintMessage("\n", cwcui.MessageTypeInfo)
 }

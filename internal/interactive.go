@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/intility/cwc/pkg/chat"
@@ -21,6 +20,7 @@ type InteractiveChatOptions struct {
 }
 
 type InteractiveCmd struct {
+	ui             ui.UI
 	clientProvider config.ClientProvider
 	promptResolver prompting.PromptResolver
 	smGenerator    systemcontext.SystemMessageGenerator
@@ -34,6 +34,7 @@ func NewInteractiveCmd(
 	chatOptions InteractiveChatOptions,
 ) *InteractiveCmd {
 	return &InteractiveCmd{
+		ui:             ui.NewUI(),
 		promptResolver: promptResolver,
 		clientProvider: clientProvider,
 		chatOptions:    chatOptions,
@@ -52,15 +53,15 @@ func (c *InteractiveCmd) Run() error {
 		return fmt.Errorf("error creating system message: %w", err)
 	}
 
-	ui.PrintMessage("Type '/exit' to end the chat.\n", ui.MessageTypeNotice)
+	c.ui.PrintMessage("Type '/exit' to end the chat.\n", ui.MessageTypeNotice)
 
 	userPrompt := c.promptResolver.ResolvePrompt()
 
 	if userPrompt == "" {
-		ui.PrintMessage("👤: ", ui.MessageTypeInfo)
-		userPrompt = ui.ReadUserInput()
+		c.ui.PrintMessage("👤: ", ui.MessageTypeInfo)
+		userPrompt = c.ui.ReadUserInput()
 	} else {
-		ui.PrintMessage(fmt.Sprintf("👤: %s\n", userPrompt), ui.MessageTypeInfo)
+		c.ui.PrintMessage(fmt.Sprintf("👤: %s\n", userPrompt), ui.MessageTypeInfo)
 	}
 
 	if userPrompt == "/exit" {
@@ -78,9 +79,9 @@ func (c *InteractiveCmd) handleChat(client *openai.Client, systemMessage string,
 
 	for {
 		conversation.WaitMyTurn()
-		ui.PrintMessage("👤: ", ui.MessageTypeInfo)
+		c.ui.PrintMessage("👤: ", ui.MessageTypeInfo)
 
-		userMessage := ui.ReadUserInput()
+		userMessage := c.ui.ReadUserInput()
 
 		if userMessage == "/exit" {
 			break
@@ -92,17 +93,17 @@ func (c *InteractiveCmd) handleChat(client *openai.Client, systemMessage string,
 
 func (c *InteractiveCmd) printMessageChunk(chunk *chat.ConversationChunk) {
 	if chunk.IsInitialChunk {
-		ui.PrintMessage("🤖: ", ui.MessageTypeInfo)
+		c.ui.PrintMessage("🤖: ", ui.MessageTypeInfo)
 		return
 	}
 
 	if chunk.IsErrorChunk {
-		ui.PrintMessage(chunk.Content, ui.MessageTypeError)
+		c.ui.PrintMessage(chunk.Content, ui.MessageTypeError)
 	}
 
 	if chunk.IsFinalChunk {
-		ui.PrintMessage("\n", ui.MessageTypeInfo)
+		c.ui.PrintMessage("\n", ui.MessageTypeInfo)
 	}
 
-	ui.PrintMessage(chunk.Content, ui.MessageTypeInfo)
+	c.ui.PrintMessage(chunk.Content, ui.MessageTypeInfo)
 }

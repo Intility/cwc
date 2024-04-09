@@ -11,6 +11,7 @@ import (
 )
 
 type FileContextRetriever struct {
+	ui             ui.UI
 	cfgProvider    config.Provider
 	includePattern string
 	excludePattern string
@@ -28,6 +29,7 @@ type FileContextRetrieverOptions struct {
 
 func NewFileContextRetriever(opts FileContextRetrieverOptions) *FileContextRetriever {
 	return &FileContextRetriever{
+		ui:             ui.NewUI(),
 		cfgProvider:    opts.CfgProvider,
 		includePattern: opts.IncludePattern,
 		excludePattern: opts.ExcludePattern,
@@ -118,9 +120,9 @@ func (r *FileContextRetriever) excludeMatchersFromConfig() ([]pathmatcher.PathMa
 		if err != nil {
 			switch {
 			case errors.IsGitNotInstalledError(err):
-				ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", ui.MessageTypeWarning)
+				r.ui.PrintMessage("warning: git not found in PATH, skipping .gitignore\n", ui.MessageTypeWarning)
 			case errors.IsNotAGitRepositoryError(err):
-				ui.PrintMessage("warning: not a git repository, skipping .gitignore\n", ui.MessageTypeWarning)
+				r.ui.PrintMessage("warning: not a git repository, skipping .gitignore\n", ui.MessageTypeWarning)
 			default:
 				return nil, fmt.Errorf("error creating gitignore matcher: %w", err)
 			}

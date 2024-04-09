@@ -7,7 +7,7 @@ import (
 
 	"github.com/intility/cwc/pkg/config"
 	"github.com/intility/cwc/pkg/errors"
-	"github.com/intility/cwc/pkg/ui"
+	cwcui "github.com/intility/cwc/pkg/ui"
 )
 
 var (
@@ -17,6 +17,7 @@ var (
 )
 
 func createLoginCmd() *cobra.Command {
+	ui := cwcui.NewUI() //nolint:varnamelen
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Authenticate with Azure OpenAI",
@@ -26,17 +27,17 @@ func createLoginCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Prompt for other required authentication details (apiKey, endpoint, version, and deployment)
 			if apiKeyFlag == "" {
-				ui.PrintMessage("Enter the Azure OpenAI API Key: ", ui.MessageTypeInfo)
+				ui.PrintMessage("Enter the Azure OpenAI API Key: ", cwcui.MessageTypeInfo)
 				apiKeyFlag = config.SanitizeInput(ui.ReadUserInput())
 			}
 
 			if endpointFlag == "" {
-				ui.PrintMessage("Enter the Azure OpenAI API Endpoint: ", ui.MessageTypeInfo)
+				ui.PrintMessage("Enter the Azure OpenAI API Endpoint: ", cwcui.MessageTypeInfo)
 				endpointFlag = config.SanitizeInput(ui.ReadUserInput())
 			}
 
 			if modelDeploymentFlag == "" {
-				ui.PrintMessage("Enter the Azure OpenAI Model Deployment: ", ui.MessageTypeInfo)
+				ui.PrintMessage("Enter the Azure OpenAI Model Deployment: ", cwcui.MessageTypeInfo)
 				modelDeploymentFlag = config.SanitizeInput(ui.ReadUserInput())
 			}
 
@@ -48,7 +49,7 @@ func createLoginCmd() *cobra.Command {
 			if err != nil {
 				if validationErr, ok := errors.AsConfigValidationError(err); ok {
 					for _, e := range validationErr.Errors {
-						ui.PrintMessage(e+"\n", ui.MessageTypeError)
+						ui.PrintMessage(e+"\n", cwcui.MessageTypeError)
 					}
 
 					return nil // suppress the error
@@ -57,7 +58,7 @@ func createLoginCmd() *cobra.Command {
 				return fmt.Errorf("error saving configuration: %w", err)
 			}
 
-			ui.PrintMessage("config saved successfully\n", ui.MessageTypeSuccess)
+			ui.PrintMessage("config saved successfully\n", cwcui.MessageTypeSuccess)
 
 			return nil
 		},
