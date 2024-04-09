@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/intility/cwc/pkg/chat"
