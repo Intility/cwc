@@ -20,16 +20,18 @@ func TestTemplatedSystemMessageGenerator_GenerateSystemMessage(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		setupMocks func(testConfig)
-		wantResult func(t *testing.T, result string)
-		wantErr    func(t *testing.T, err error)
+		name         string
+		templateName string
+		setupMocks   func(testConfig)
+		wantResult   func(t *testing.T, result string)
+		wantErr      func(t *testing.T, err error)
 	}{
 		{
-			name: "use builtin system message if no template found",
+			name:         "use builtin system message if default template not found",
+			templateName: "default",
 			setupMocks: func(m testConfig) {
 				m.ctxRetriever.On("RetrieveContext").Return("test_context", nil)
-				m.locator.On("GetTemplate", "test").
+				m.locator.On("GetTemplate", "default").
 					Return(nil, errors.TemplateNotFoundError{})
 			},
 			wantResult: func(t *testing.T, result string) {
@@ -41,7 +43,23 @@ func TestTemplatedSystemMessageGenerator_GenerateSystemMessage(t *testing.T) {
 			},
 		},
 		{
-			name: "returns error if template provider fails",
+			name:         "return error if non-default template not found",
+			templateName: "test",
+			setupMocks: func(m testConfig) {
+				m.ctxRetriever.On("RetrieveContext").Return("test_context", nil)
+				m.locator.On("GetTemplate", "test").
+					Return(nil, errors.TemplateNotFoundError{})
+			},
+			wantResult: func(t *testing.T, result string) {
+				assert.Empty(t, result)
+			},
+			wantErr: func(t *testing.T, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name:         "returns error if template provider fails",
+			templateName: "test",
 			setupMocks: func(m testConfig) {
 				m.ctxRetriever.On("RetrieveContext").Return("test_context", nil)
 				m.locator.On("GetTemplate", "test").
@@ -55,7 +73,8 @@ func TestTemplatedSystemMessageGenerator_GenerateSystemMessage(t *testing.T) {
 			},
 		},
 		{
-			name: "render template without vars",
+			name:         "render template without vars",
+			templateName: "test",
 			setupMocks: func(m testConfig) {
 				m.ctxRetriever.On("RetrieveContext").Return("test_context", nil)
 				m.testTemplate = &templates.Template{SystemMessage: "test_message"}
@@ -70,7 +89,8 @@ func TestTemplatedSystemMessageGenerator_GenerateSystemMessage(t *testing.T) {
 			},
 		},
 		{
-			name: "render template with default var values",
+			name:         "render template with default var values",
+			templateName: "test",
 			setupMocks: func(m testConfig) {
 				m.ctxRetriever.On("RetrieveContext").Return("test_context", nil)
 				m.testTemplate = &templates.Template{
@@ -90,7 +110,8 @@ func TestTemplatedSystemMessageGenerator_GenerateSystemMessage(t *testing.T) {
 			},
 		},
 		{
-			name: "render template with replaced var values",
+			name:         "render template with replaced var values",
+			templateName: "test",
 			setupMocks: func(m testConfig) {
 				m.ctxRetriever.On("RetrieveContext").Return("test_context", nil)
 				m.testTemplate = &templates.Template{
@@ -127,7 +148,7 @@ func TestTemplatedSystemMessageGenerator_GenerateSystemMessage(t *testing.T) {
 
 			smg := systemcontext.NewTemplatedSystemMessageGenerator(
 				locator,
-				"test",
+				tt.templateName,
 				cfg.templateVars,
 				ctxRetriever,
 			)
