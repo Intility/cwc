@@ -9,6 +9,10 @@ import (
 	"github.com/intility/cwc/pkg/templates"
 )
 
+const (
+	defaultTemplateName = "default"
+)
+
 type SystemMessageGenerator interface {
 	GenerateSystemMessage() (string, error)
 }
@@ -49,6 +53,11 @@ func (smg *TemplatedSystemMessageGenerator) GenerateSystemMessage() (string, err
 	// if no template found, create a basic template as fallback
 	if err != nil {
 		if errors.IsTemplateNotFoundError(err) {
+			// exit with error if the user has requested a custom template and it is not found
+			if smg.templateName != defaultTemplateName {
+				return "", fmt.Errorf("template not found: %w", err)
+			}
+
 			return CreateBuiltinSystemMessageFromContext(ctx), nil
 		}
 
