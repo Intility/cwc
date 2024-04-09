@@ -15,7 +15,7 @@ func TestNewClientFromConfig(t *testing.T) {
 
 	// Define the test cases
 	type testConfig struct {
-		cfgProvider  *mocks.ConfigProvider
+		cfgProvider  *mocks.Provider
 		clientConfig openai.ClientConfig
 	}
 
@@ -54,7 +54,7 @@ func TestNewClientFromConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockConfigProvider := &mocks.ConfigProvider{}
+			mockConfigProvider := &mocks.Provider{}
 			cfg := testConfig{cfgProvider: mockConfigProvider, clientConfig: openai.ClientConfig{}}
 			tt.setupMocks(cfg)
 
